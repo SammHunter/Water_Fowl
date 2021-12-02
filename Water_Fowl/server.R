@@ -8,6 +8,7 @@ library(lubridate)
 library(caret)
 library(DT)
 library(doParallel)
+<<<<<<< HEAD
 # Package for the Model Tree regression
 #install.packages("RWeka")
 library(rJava)
@@ -45,6 +46,12 @@ birds <- fowls %>%
 
 # Fixing the dates to actual date instead of character strings
 birds$Date <- mdy(birds$Date)
+=======
+
+
+
+fowls$STRATUM = as.character(fowls$STRATUM)
+>>>>>>> 1258201f41328929321e8f5be0b78024a35c24e6
 
 birds <- fowls %>% 
   mutate( 
@@ -223,5 +230,79 @@ shinyServer(function(input, output, session) {
     bird_count
   })
   
+  output$expGraph <- renderPlot({
+    range <- input$RangeUI
+    min_count <- range[1]
+    max_count <- range[2]
+    scatter <- ggplot(data = subset(bird_count, min_count <= Count & Count <= max_count)) +
+      geom_jitter(aes(x = Year, y = Count, shape = Species, color = State))
+    
+    scatter
+  })
+  
+  output$summary <- renderDT({
+    if(input$TableGroupUI2=="None"){
+      summary_table <- bird_count %>% group_by(.data[[input$TableGroupUI1]]) %>%
+        summarize(Mean = round(mean(Count),3), Median = round(median(Count), 3), 
+                  Range = paste0(min(Count), " - ", max(Count), IQR = IQR(Count)))
+      summary_table
+    }else{
+    summary_table <- bird_count %>% group_by(.data[[input$TableGroupUI1]], .data[[input$TableGroupUI2]]) %>%
+      summarize(Mean = round(mean(Count),3), Median = round(median(Count), 3), 
+                Range = paste0(min(Count), " - ", max(Count), IQR = IQR(Count)))
+    summary_table
+    }
+  })
+  
+  
+  output$tbCond <- renderPrint({
+    .data[[input$TableGroupUI]]
+  })
+
+  output$range <- renderPrint({
+    range <- input$RangeUI
+    range
+  })
+
+
+### MODELLING
+  
+  ## Linear Model
+  output$LMResults <- renderPrint({
+    split <- input$split/100
+    trainIndex <- createDataPartition(bird_count$Species, p = split, list=FALSE)
+    birds_train <- bird_count[trainIndex,]
+    birds_test <- bird_count[-trainIndex,]
+
+    req(input$predictors)
+    pred_data <- bird_count %>% select(Count, all_of(input$predictors))
+
+    withProgress(message = 'Linear Model', value=0, ({
+      lmFit1 <- train(Count ~ ., data =pred_data,
+                      method = "lm", trControl = trainControl(method = "cv", number = 5),
+                      na.action = na.exclude)
+    }))
+    summary(lmFit1)
+  })
+  
+  ## Random Forests
+  # output$RFResults <- renderPlot({
+  #   split <- input$split/100
+  #   trainIndex <- createDataPartition(bird_count$Species, p = split, list=FALSE)
+  #   birds_train <- bird_count[trainIndex,]
+  #   birds_test <- bird_count[-trainIndex,]
+  #   
+  #   req(input$predictors)
+  #   pred_data <- bird_count %>% select(Count, all_of(input$predictors))
+  #   
+  #   withProgress(message = 'Random Forests', value=0, ({
+  #     rf_SigPred <- train(Count ~ Year + State + Handfeed + Species,
+  #     data = birds_train, method = "rf",
+  #     trControl = trainControl(method = "cv", number = 5),
+  #     tuneGrid = data.frame(mtry = c(1, 2, 3, 4)))
+  #     })) 
+  #   rf_SigPred
+  #   plot(rf_SigPred)
+  # })
 })
 

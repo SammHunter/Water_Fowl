@@ -193,8 +193,11 @@ ggplot(bird_count, aes(x = Year, y = Count, colour = Species)) +
   stat_smooth(data = subset(bird_count, Species == "WoodDuck", 
                             method = "lm", se = T))
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 1258201f41328929321e8f5be0b78024a35c24e6
 ggplot(bird_count) +
   geom_bar(aes())
 
@@ -203,6 +206,7 @@ subset(bird_count, 7 <= Count & Count <= 400 )
 ggplot(data = subset(bird_count, 0 <= Count & Count <= 400 )) +
   geom_jitter(aes(x = Year, y = Count, shape = Species, color = State))
 
+<<<<<<< HEAD
 
 # bird_dec <- bird_count %>% mutate(
 #       decade = if_else(1990 <= Year || Year <= 1999, "1993-1999", 
@@ -211,6 +215,8 @@ ggplot(data = subset(bird_count, 0 <= Count & Count <= 400 )) +
 # ggplot(bird_count) + 
 #       geom_bar(aes(x=Year, fill=Species), position = "dodge")
 
+=======
+>>>>>>> 1258201f41328929321e8f5be0b78024a35c24e6
 ```
 
 
@@ -275,6 +281,7 @@ summs <- summary(lmFit1)
 
 ### Tree
 ```{r}
+<<<<<<< HEAD
  # Define all tuning parameters
 n.trees <- c(100,200,300,400,500)
 interaction.depth <- c(1:10)
@@ -309,6 +316,8 @@ stopCluster(cl)
 ### Random Forest 
 ```{r}
 
+=======
+>>>>>>> 1258201f41328929321e8f5be0b78024a35c24e6
 rf_SigPred <- train(Count ~ Year + State + Handfeed + Species,
              data = birds_train, method = "rf", 
              trControl = trainControl(method = "cv", number = 5),
@@ -325,6 +334,15 @@ tree(rfFit)
 # Plot representing the 
 plot(rfFit, xlab = "Number of Predictors in RF Model", ylab = "Root Mean Square Error (Found through CV)", 
      main = "Minimizing RMSE")
+<<<<<<< HEAD
+=======
+```
+
+
+
+### Random Forest 
+```{r}
+>>>>>>> 1258201f41328929321e8f5be0b78024a35c24e6
 
 ```
 
