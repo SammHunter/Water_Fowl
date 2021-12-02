@@ -149,8 +149,9 @@ Plot: ID Variables if you sort data by Year-State-Stratum-Plot
 #                         if_else(birds$Count >= 3| Count < 30, "Gaggle", "Flock"))))
 ?subset
 
-summary_table <- bird_count %>% group_by(Species,Year) %>%
-  summarize(Mean = mean(Count), Median = median(Count), Range = paste0(min(Count), "-", max(Count), IQR = IQR(Count)))
+summary_table <- bird_count %>% group_by(Species) %>%
+      summarize(Mean = round(mean(Count),3), Median = round(median(Count), 3), 
+                Range = paste0(min(Count), " - ", max(Count), IQR = IQR(Count)))
 summary_table
 
 # Have this be rendered in the data exploration tab
@@ -192,12 +193,6 @@ ggplot(bird_count, aes(x = Year, y = Count, colour = Species)) +
                             method = "lm", se = T)) + 
   stat_smooth(data = subset(bird_count, Species == "WoodDuck", 
                             method = "lm", se = T))
-
-<<<<<<< HEAD
-
-
-=======
->>>>>>> 1258201f41328929321e8f5be0b78024a35c24e6
 ggplot(bird_count) +
   geom_bar(aes())
 
@@ -206,7 +201,6 @@ subset(bird_count, 7 <= Count & Count <= 400 )
 ggplot(data = subset(bird_count, 0 <= Count & Count <= 400 )) +
   geom_jitter(aes(x = Year, y = Count, shape = Species, color = State))
 
-<<<<<<< HEAD
 
 # bird_dec <- bird_count %>% mutate(
 #       decade = if_else(1990 <= Year || Year <= 1999, "1993-1999", 
@@ -215,8 +209,6 @@ ggplot(data = subset(bird_count, 0 <= Count & Count <= 400 )) +
 # ggplot(bird_count) + 
 #       geom_bar(aes(x=Year, fill=Species), position = "dodge")
 
-=======
->>>>>>> 1258201f41328929321e8f5be0b78024a35c24e6
 ```
 
 
@@ -251,6 +243,11 @@ birds_test <- bird_count[-trainIndex,]
 preProc <- preProcess(birds_train, method = c("center", "scale"))
 birds_std_train <- predict(preProc, birds_train)
 birds_std_test <- predict(preProc, birds_test)
+
+summary_table <- bird_count %>% group_by(Year) %>%
+      summarize(Mean = round(mean(Count),3), Median = round(median(Count), 3), 
+                Range = paste0(min(Count), " - ", max(Count), IQR = IQR(Count)))
+summary_table
 ```
 
 
@@ -281,7 +278,6 @@ summs <- summary(lmFit1)
 
 ### Tree
 ```{r}
-<<<<<<< HEAD
  # Define all tuning parameters
 n.trees <- c(100,200,300,400,500)
 interaction.depth <- c(1:10)
@@ -316,8 +312,6 @@ stopCluster(cl)
 ### Random Forest 
 ```{r}
 
-=======
->>>>>>> 1258201f41328929321e8f5be0b78024a35c24e6
 rf_SigPred <- train(Count ~ Year + State + Handfeed + Species,
              data = birds_train, method = "rf", 
              trControl = trainControl(method = "cv", number = 5),
@@ -334,15 +328,13 @@ tree(rfFit)
 # Plot representing the 
 plot(rfFit, xlab = "Number of Predictors in RF Model", ylab = "Root Mean Square Error (Found through CV)", 
      main = "Minimizing RMSE")
-<<<<<<< HEAD
-=======
+
 ```
 
 
 
 ### Random Forest 
 ```{r}
->>>>>>> 1258201f41328929321e8f5be0b78024a35c24e6
 
 ```
 

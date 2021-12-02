@@ -1,7 +1,3 @@
-
-
-
-
 library(shiny)
 library(tidyverse)
 library(lubridate)
@@ -46,10 +42,6 @@ birds <- fowls %>%
 # Fixing the dates to actual date instead of character strings
 birds$Date <- mdy(birds$Date)
 
-
-
-fowls$STRATUM = as.character(fowls$STRATUM)
-
 birds <- fowls %>% 
   mutate( 
     CanadianGoose = if_else(!is.na(CAGO_TIBN), CAGO_TIBN, CAGO_TIB), 
@@ -60,7 +52,7 @@ birds <- fowls %>%
          Mallard = MALL_TIB, 
          AmBlackDuck = ABDU_TIB, 
          WoodDuck = WODU_TIB) %>%
-
+  
   select(!CAGO_TIB, -CAGO_TIBN, -ends_with("_TIP")) %>%
   pivot_longer(cols = 9:12, names_to = "Species", values_to = "Count") %>%
   filter(!is.na(Count))
@@ -91,16 +83,16 @@ shinyServer(function(input, output, session) {
     
     if(input$SpeciesUI == 1){
       scatter <- ggplot(data = subset(bird_count, min_count <= Count & Count <= max_count), 
-                      aes(x = Year, y = Count, shape = Species, color = State)) +
-      geom_jitter() +
-      stat_smooth(data = subset(bird_count, Species == "AmBlackDuck", 
-                                method = "lm", se = T)) +
-      stat_smooth(data = subset(bird_count, Species == "CanadianGoose", 
-                                method = "lm", se = T)) + 
-      stat_smooth(data = subset(bird_count, Species == "Mallard", 
-                                method = "lm", se = T)) + 
-      stat_smooth(data = subset(bird_count, Species == "WoodDuck", 
-                                method = "lm", se = T))
+                        aes(x = Year, y = Count, shape = Species, color = State)) +
+        geom_jitter() +
+        stat_smooth(data = subset(bird_count, Species == "AmBlackDuck", 
+                                  method = "lm", se = T)) +
+        stat_smooth(data = subset(bird_count, Species == "CanadianGoose", 
+                                  method = "lm", se = T)) + 
+        stat_smooth(data = subset(bird_count, Species == "Mallard", 
+                                  method = "lm", se = T)) + 
+        stat_smooth(data = subset(bird_count, Species == "WoodDuck", 
+                                  method = "lm", se = T))
     }else{
       scatter <- ggplot(data = subset(bird_count, min_count <= Count & Count <= max_count &
                                         Species == input$SpeciesUI)) +
@@ -158,10 +150,10 @@ shinyServer(function(input, output, session) {
       summarize(Mean = round(mean(Count),3), Median = round(median(Count), 3), 
                 Range = paste0(min(Count), " - ", max(Count), IQR = IQR(Count)))
     summary_table
-    })
-
-
-### MODELLING
+  })
+  
+  
+  ### MODELLING
   
   pred_data <- reactive({
     split <- input$split/100
@@ -183,7 +175,7 @@ shinyServer(function(input, output, session) {
     }))
     summary(lmFit1)
   })
-
+  
   ## Boosted Trees
   output$BTResults <- renderPlot({
     withProgress(message = 'Boosted Trees', value=0, ({
@@ -193,33 +185,33 @@ shinyServer(function(input, output, session) {
                           trControl = trainControl(method = "repeatedcv", number = 5),
                           tuneGrid = expand.grid(n.trees = c(25, 50, 100, 150, 200),
                                                  interaction.depth = c(1:4), shrinkage = 0.1, 
-                                                 n.minobsinnode = 10)) 
+                                                 n.minobsinnode = 10),)
       stopCluster(cl)
     }))
-
+    
     plot(Count_tree, xlab = "Max Tree Depth (by Interaction)",
          ylab = "Root Mean Square Error (Found through CV)",
          main = "Subsetted Predictors - Minimizing RMSE")
   })
-
+  
   ## Random Forests
   output$RFResults <- renderPlot({
     withProgress(message = 'Random Forests', value=0, ({
       cl <- makePSOCKcluster(6)
       registerDoParallel(cl)
-
+      
       rf_SigPred <- train(Count~ ., data = pred_data(), method = "rf",
-      trControl = trainControl(method = "cv", number = 5),
-      tuneGrid = data.frame(mtry = c(1, 2, 3, 4)))
-
+                          trControl = trainControl(method = "cv", number = 5),
+                          tuneGrid = data.frame(mtry = c(1, 2, 3, 4)))
+      
       stopCluster(cl)
-      }))
+    }))
     rf_SigPred
     plot(rf_SigPred)
   })
   
   
-### Datatable
+  ### Datatable
   # Make table first
   
   
@@ -227,79 +219,4 @@ shinyServer(function(input, output, session) {
     bird_count
   })
   
-  output$expGraph <- renderPlot({
-    range <- input$RangeUI
-    min_count <- range[1]
-    max_count <- range[2]
-    scatter <- ggplot(data = subset(bird_count, min_count <= Count & Count <= max_count)) +
-      geom_jitter(aes(x = Year, y = Count, shape = Species, color = State))
-    
-    scatter
-  })
-  
-  output$summary <- renderDT({
-    if(input$TableGroupUI2=="None"){
-      summary_table <- bird_count %>% group_by(.data[[input$TableGroupUI1]]) %>%
-        summarize(Mean = round(mean(Count),3), Median = round(median(Count), 3), 
-                  Range = paste0(min(Count), " - ", max(Count), IQR = IQR(Count)))
-      summary_table
-    }else{
-    summary_table <- bird_count %>% group_by(.data[[input$TableGroupUI1]], .data[[input$TableGroupUI2]]) %>%
-      summarize(Mean = round(mean(Count),3), Median = round(median(Count), 3), 
-                Range = paste0(min(Count), " - ", max(Count), IQR = IQR(Count)))
-    summary_table
-    }
-  })
-  
-  
-  output$tbCond <- renderPrint({
-    .data[[input$TableGroupUI]]
-  })
-
-  output$range <- renderPrint({
-    range <- input$RangeUI
-    range
-  })
-
-
-### MODELLING
-  
-  ## Linear Model
-  output$LMResults <- renderPrint({
-    split <- input$split/100
-    trainIndex <- createDataPartition(bird_count$Species, p = split, list=FALSE)
-    birds_train <- bird_count[trainIndex,]
-    birds_test <- bird_count[-trainIndex,]
-
-    req(input$predictors)
-    pred_data <- bird_count %>% select(Count, all_of(input$predictors))
-
-    withProgress(message = 'Linear Model', value=0, ({
-      lmFit1 <- train(Count ~ ., data =pred_data,
-                      method = "lm", trControl = trainControl(method = "cv", number = 5),
-                      na.action = na.exclude)
-    }))
-    summary(lmFit1)
-  })
-  
-  ## Random Forests
-  # output$RFResults <- renderPlot({
-  #   split <- input$split/100
-  #   trainIndex <- createDataPartition(bird_count$Species, p = split, list=FALSE)
-  #   birds_train <- bird_count[trainIndex,]
-  #   birds_test <- bird_count[-trainIndex,]
-  #   
-  #   req(input$predictors)
-  #   pred_data <- bird_count %>% select(Count, all_of(input$predictors))
-  #   
-  #   withProgress(message = 'Random Forests', value=0, ({
-  #     rf_SigPred <- train(Count ~ Year + State + Handfeed + Species,
-  #     data = birds_train, method = "rf",
-  #     trControl = trainControl(method = "cv", number = 5),
-  #     tuneGrid = data.frame(mtry = c(1, 2, 3, 4)))
-  #     })) 
-  #   rf_SigPred
-  #   plot(rf_SigPred)
-  # })
 })
-
