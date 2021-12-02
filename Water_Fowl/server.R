@@ -8,7 +8,6 @@ library(lubridate)
 library(caret)
 library(DT)
 library(doParallel)
-<<<<<<< HEAD
 # Package for the Model Tree regression
 #install.packages("RWeka")
 library(rJava)
@@ -46,12 +45,10 @@ birds <- fowls %>%
 
 # Fixing the dates to actual date instead of character strings
 birds$Date <- mdy(birds$Date)
-=======
 
 
 
 fowls$STRATUM = as.character(fowls$STRATUM)
->>>>>>> 1258201f41328929321e8f5be0b78024a35c24e6
 
 birds <- fowls %>% 
   mutate( 
@@ -196,7 +193,7 @@ shinyServer(function(input, output, session) {
                           trControl = trainControl(method = "repeatedcv", number = 5),
                           tuneGrid = expand.grid(n.trees = c(25, 50, 100, 150, 200),
                                                  interaction.depth = c(1:4), shrinkage = 0.1, 
-                                                 n.minobsinnode = 10),)
+                                                 n.minobsinnode = 10)) 
       stopCluster(cl)
     }))
 
