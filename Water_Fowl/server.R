@@ -154,10 +154,18 @@ shinyServer(function(input, output, session) {
   
   
   ### MODELLING
+
+  # User Input Choices for all Models
+  cv_num <- reactive({
+    input$cv
+  })
   
+  split <- reactive({
+    input$split/100
+  })
+
   pred_data <- reactive({
-    split <- input$split/100
-    trainIndex <- createDataPartition(bird_count$Species, p = split, list=FALSE)
+    trainIndex <- createDataPartition(bird_count$Species, p = split(), list=FALSE)
     birds_train <- bird_count[trainIndex,]
     birds_test <- bird_count[-trainIndex,]
     
@@ -170,22 +178,42 @@ shinyServer(function(input, output, session) {
   output$LMResults <- renderPrint({
     withProgress(message = 'Linear Model', value=0, ({
       lmFit1 <- train(Count ~ ., data =pred_data(),
-                      method = "lm", trControl = trainControl(method = "cv", number = 5),
+                      method = "lm", trControl = trainControl(method = "cv", number = cv_num()),
                       na.action = na.exclude)
     }))
     summary(lmFit1)
   })
   
   ## Boosted Trees
+  #User Input Choices
+  
+  ntrees_num <- reactive({
+    input$ntrees
+  })
+  
+  interactiondepth <- reactive({
+    input$interactiondepth
+  })
+  
+  shrink <- reactive({
+    input$shrink
+  })
+  
+  nminobs <- reactive({
+    input$nminobs
+  })
+  
   output$BTResults <- renderPlot({
+    
     withProgress(message = 'Boosted Trees', value=0, ({
       cl <- makePSOCKcluster(6)
       registerDoParallel(cl)
       Count_tree <- train(Count ~ ., data = pred_data(), method = "gbm",
-                          trControl = trainControl(method = "repeatedcv", number = 5),
-                          tuneGrid = expand.grid(n.trees = c(25, 50, 100, 150, 200),
-                                                 interaction.depth = c(1:4), shrinkage = 0.1, 
-                                                 n.minobsinnode = 10),)
+                          trControl = trainControl(method = "repeatedcv", number = cv_num()),
+                          tuneGrid = expand.grid(n.trees = c(as.numeric(paste(ntrees_num()))),
+                                                 interaction.depth = c(as.numeric(paste(interactiondepth()))), 
+                                                 shrinkage = c(as.numeric(paste(shrink()))), 
+                                                 n.minobsinnode = c(as.numeric(paste(nminobs())))))
       stopCluster(cl)
     }))
     
@@ -194,22 +222,25 @@ shinyServer(function(input, output, session) {
          main = "Subsetted Predictors - Minimizing RMSE")
   })
   
+  
   ## Random Forests
+  mtry_num <- reactive({
+    input$mtry_num
+  })
+  
   output$RFResults <- renderPlot({
     withProgress(message = 'Random Forests', value=0, ({
       cl <- makePSOCKcluster(6)
       registerDoParallel(cl)
-      
       rf_SigPred <- train(Count~ ., data = pred_data(), method = "rf",
-                          trControl = trainControl(method = "cv", number = 5),
-                          tuneGrid = data.frame(mtry = c(1, 2, 3, 4)))
-      
+                          trControl = trainControl(method = "cv", number = cv_num()),
+                          tuneGrid = data.frame(mtry = c(as.numeric(paste(mtry_obs())))))
       stopCluster(cl)
     }))
     rf_SigPred
     plot(rf_SigPred)
   })
-  
+
   
   ### Datatable
   # Make table first

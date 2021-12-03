@@ -163,7 +163,10 @@ unique(birds$Stratum)
 # 12
 # 27
 # 99 - Saltmarsh Stratum
+s<- as.list(c(1, 2, 3, 4, 5, 6))
+s
 
+c(as.numeric(paste(s)))
 ```
 
 

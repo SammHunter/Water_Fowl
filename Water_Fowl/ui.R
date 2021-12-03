@@ -47,7 +47,7 @@ birds$Date <- mdy(birds$Date)
 fluidPage(
   navbarPage("Water Fowl Counts along the American North-East Coast",
              
-             #tabPanel("About"),
+             tabPanel("About"),
              # IN ABOUT:
              #     - Mention that you don't know if a blank count is a zero or missing so I treated it as zero to be on the
              #       conservative side for the birds
@@ -123,28 +123,40 @@ fluidPage(
                         # NEED mathJax
                         
                         tabPanel("Model Fitting",
-                                 sliderInput("split", "Choose the Percentage Of Total Observations in Training Set", 
-                                             min = 50, max = 90, value = 70), 
-                                 selectInput("predictors", "Predictors for Bird Count", 
-                                             names(birds[,1:9]), multiple = TRUE, selectize = FALSE), 
-                                 # LM - CV Number
-                                 #BT - n.trees, interaction.depth, shrinkage, n.minobsinnode
-                                 # RF - mtry
-                                 numericInput("cv", "Set the Number of Folds Used in Cross-Validation", 
-                                              min = 2, max = 10, value = 5), 
-                                 # want to be able to select many of these
-                                 selectInput("ntrees", "Number of Trees to Evaluate", 
-                                             c(25, 50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500),
-                                             multiple = TRUE, selectize = FALSE),
+                                 uiOutput("ntrees_num"),
+                                 uiOutput("str_ntrees_num"),
+                                 
+                                 column(4, "Modelling Choices for all Models", 
+                                        sliderInput("split", "Choose the Percentage Of Total Observations in Training Set",
+                                                    min = 50, max = 90, value = 70), 
+                                        selectInput("predictors", "Predictors for Bird Count", 
+                                                   names(birds[,1:9]), multiple = TRUE, selectize = FALSE), 
+                                        numericInput("cv", "Set the Number of Folds Used in Cross-Validation", 
+                                              min = 2, max = 10, value = 5)),
+
+                                 column(4, "Parameter Tuning for Boosted Tree Models",
+                                        selectInput("ntrees", "Number of Trees to Evaluate",
+                                                    c(25, 50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500),
+                                                    multiple = TRUE, selectize = FALSE),
+                                        selectInput("interactiondepth", "Max Interaction Depth Available to the Trees",
+                                                    c(1:10), multiple = TRUE, selectize = FALSE),
+                                        selectInput("shrink", "Shrinkage", c(.001, .01, .1),
+                                                    multiple = TRUE, selectize = FALSE),
+                                        selectInput("nminobs", "Minimum Number of Observations in Node",
+                                                    c(100, 500, 750, 1000), multiple = TRUE, selectize = FALSE)),
+
+                                 column(4, "Parameter Tuning for Random Forest Models",
+                                        selectInput("mtry_num", "mTry", c(1:9),
+                                                    multiple = TRUE, selectize = FALSE)),
                                  
                                  textOutput("Preds"), 
                                  submitButton("Model"),
                                  
                                  verbatimTextOutput("LMResults"),
                                  plotOutput("BTResults"),
-                                 plotOutput("RFResults")
+                                 plotOutput("RFResults")),
                                  
-                        ), 
+                                 # Testing the Models on the unseen data, we'll make a comparison on the RMSEs 
                         
                         # Will want to pass an argument and result in count of birds 
                         tabPanel("Prediction",
