@@ -124,7 +124,7 @@ shinyServer(function(input, output, session) {
   output$circTOD <- renderPlot({
     # Can add option to just see one species at a time
     ggplot(bird_count) + 
-      geom_bar(aes(x=Stratum, fill=Species), position = "dodge")
+      geom_bar(aes(x=TimeOfDay, fill=Species), position = "dodge")
   })
   
   output$circWetHab <- renderPlot({
@@ -136,19 +136,20 @@ shinyServer(function(input, output, session) {
   output$hfGraph <- renderPlot({
     # Can add option to just see one species at a time
     ggplot(bird_count) + 
-      geom_bar(aes(x=WetHab, fill=Species), position = "dodge")
+      geom_bar(aes(x=Handfeed, fill=Species), position = "dodge")
   })
   
   output$countGraph <- renderPlot({
     # Can add option to just see one species at a time
     ggplot(bird_count) + 
-      geom_bar(aes(x=WetHab, fill=Species), position = "dodge")
+      geom_bar(aes(x=Count, color=Species), position = "dodge")
   })
   
   output$summary <- renderDT({
     summary_table <- bird_count %>% group_by(across(all_of(input$tg))) %>%
       summarize(Mean = round(mean(Count),3), Median = round(median(Count), 3), 
-                Range = paste0(min(Count), " - ", max(Count), IQR = IQR(Count)))
+                Range = paste0(min(Count), " - ", max(Count), IQR = IQR(Count)), 
+                Observations = n())
     summary_table
   })
   
@@ -156,28 +157,27 @@ shinyServer(function(input, output, session) {
   ### MODELLING
 
   # User Input Choices for all Models
-  cv_num <- reactive({
+  cv_num <- eventReactive(input$Model, {
     input$cv
   })
   
-  split <- reactive({
+  split <- eventReactive(input$Model, {
     input$split/100
   })
 
-  pred_data <- reactive({
+  pred_train <- eventReactive(input$Model, {
     trainIndex <- createDataPartition(bird_count$Species, p = split(), list=FALSE)
     birds_train <- bird_count[trainIndex,]
-    birds_test <- bird_count[-trainIndex,]
     
     req(input$predictors)
-    pred_data <- bird_count %>% select(Count, all_of(input$predictors))
-    pred_data
+    pred_train <- bird_count %>% select(Count, all_of(input$predictors))
+    pred_train
   })
   
   ## Linear Model
   output$LMResults <- renderPrint({
     withProgress(message = 'Linear Model', value=0, ({
-      lmFit1 <- train(Count ~ ., data =pred_data(),
+      lmFit1 <- train(Count ~ ., data =pred_train(),
                       method = "lm", trControl = trainControl(method = "cv", number = cv_num()),
                       na.action = na.exclude)
     }))
@@ -187,19 +187,19 @@ shinyServer(function(input, output, session) {
   ## Boosted Trees
   #User Input Choices
   
-  ntrees_num <- reactive({
+  ntrees_num <- eventReactive(input$Model, { 
     input$ntrees
   })
   
-  interactiondepth <- reactive({
+  interactiondepth <- eventReactive(input$Model, { 
     input$interactiondepth
   })
   
-  shrink <- reactive({
+  shrink <- eventReactive(input$Model, {
     input$shrink
   })
   
-  nminobs <- reactive({
+  nminobs <- eventReactive(input$Model, { 
     input$nminobs
   })
   
@@ -208,7 +208,7 @@ shinyServer(function(input, output, session) {
     withProgress(message = 'Boosted Trees', value=0, ({
       cl <- makePSOCKcluster(6)
       registerDoParallel(cl)
-      Count_tree <- train(Count ~ ., data = pred_data(), method = "gbm",
+      Count_tree <- train(Count ~ ., data = pred_train(), method = "gbm",
                           trControl = trainControl(method = "repeatedcv", number = cv_num()),
                           tuneGrid = expand.grid(n.trees = c(as.numeric(paste(ntrees_num()))),
                                                  interaction.depth = c(as.numeric(paste(interactiondepth()))), 
@@ -224,7 +224,7 @@ shinyServer(function(input, output, session) {
   
   
   ## Random Forests
-  mtry_num <- reactive({
+  mtry_num <- eventReactive(input$Model, {
     input$mtry_num
   })
   
@@ -232,15 +232,17 @@ shinyServer(function(input, output, session) {
     withProgress(message = 'Random Forests', value=0, ({
       cl <- makePSOCKcluster(6)
       registerDoParallel(cl)
-      rf_SigPred <- train(Count~ ., data = pred_data(), method = "rf",
+      rf_SigPred <- train(Count~ ., data = pred_train(), method = "rf",
                           trControl = trainControl(method = "cv", number = cv_num()),
-                          tuneGrid = data.frame(mtry = c(as.numeric(paste(mtry_obs())))))
+                          tuneGrid = data.frame(mtry = c(as.numeric(paste(mtry_num())))))
       stopCluster(cl)
     }))
     rf_SigPred
     plot(rf_SigPred)
-  })
 
+    # rfImp <- varImp(rf_SigPred)
+    # plot(rfImp,top = 5, main="Random Forest Model\nTop 10 Importance Plot")
+  })
   
   ### Datatable
   # Make table first

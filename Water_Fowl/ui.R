@@ -99,13 +99,13 @@ fluidPage(
                              conditionalPanel(condition = "input.DisplayGraph == 8", 
                                               plotOutput("countGraph")), 
                              
-                             submitButton("Graph")),
+                             submitButton("Graph", "Graph")),
                       
                       column(3,
                              checkboxGroupInput("tg", "First Variable Grouping",
                                                 c("Species","Year", "State", "Stratum", "Time of Day" = "TimeOfDay",
                                                   "Wetland Habitat" = "WetHab")), 
-                             submitButton("Table")
+                             submitButton("Table", "Table")
                       ),
                       
                       column(6,
@@ -130,7 +130,7 @@ fluidPage(
                                         sliderInput("split", "Choose the Percentage Of Total Observations in Training Set",
                                                     min = 50, max = 90, value = 70), 
                                         selectInput("predictors", "Predictors for Bird Count", 
-                                                   names(birds[,1:9]), multiple = TRUE, selectize = FALSE), 
+                                                   names(birds[,c(1:3, 7, 9)]), multiple = TRUE, selectize = FALSE), 
                                         numericInput("cv", "Set the Number of Folds Used in Cross-Validation", 
                                               min = 2, max = 10, value = 5)),
 
@@ -150,11 +150,13 @@ fluidPage(
                                                     multiple = TRUE, selectize = FALSE)),
                                  
                                  textOutput("Preds"), 
-                                 submitButton("Model"),
+                                 actionButton("Model", "ModelGO"),
                                  
                                  verbatimTextOutput("LMResults"),
                                  plotOutput("BTResults"),
                                  plotOutput("RFResults")),
+                        
+                        # Root Mean Square 
                                  
                                  # Testing the Models on the unseen data, we'll make a comparison on the RMSEs 
                         
@@ -167,7 +169,10 @@ fluidPage(
                                  selectInput("predState", "Pick an North-Eastern State",
                                              unique(birds$State)),
                                  selectInput("predStrat", "Pick a Stratum",
-                                             unique(birds$Stratum))
+                                             unique(birds$Stratum)), 
+                                 radioButtons("predHab", "Is there a Wetlands habitat nearby?", 
+                                              c("Yes" = "Y", "No" = "N"))
+                                 # Ignore Plot, Date, TimeofDay, Handfeed bc they are too homogenous
                         )
                         # Select the values of the predictors and obtain a prediction for the response
                         # Have Shiny throw an error if User tries to go under 1993, 2010, 2012. or over 2015
