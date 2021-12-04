@@ -47,7 +47,8 @@ birds$Date <- mdy(birds$Date)
 fluidPage(
   navbarPage("Water Fowl Counts along the American North-East Coast",
              
-             tabPanel("About"),
+             tabPanel("About", 
+                      "Legalize Murder"),
              # IN ABOUT:
              #     - Mention that you don't know if a blank count is a zero or missing so I treated it as zero to be on the
              #       conservative side for the birds
@@ -71,9 +72,9 @@ fluidPage(
                              # Need the slider to remove values of count in the scatter plot based on Species
                              conditionalPanel(condition = "input.DisplayGraph == 1",
                                               sliderInput("RangeUI", "Limit the Values for Number of Birds Seen",
-                                                          min = 0, max = 400, value = c(1, 50)),
+                                                          min = 1, max = 400, value = c(1, 50)),
                                               
-                                              radioButtons("SpeciesUI", "Choose the Species",
+                                              radioButtons("de_spec_spec", "Choose the Species",
                                                            c("All" = 1, 
                                                              "American Black Duck" = "AmBlackDuck",
                                                              "Canadian Goose" = "CanadianGoose",
@@ -84,28 +85,42 @@ fluidPage(
                              
                              # Can add option to just see one species at a time
                              conditionalPanel(condition = "input.DisplayGraph == 2",
+                                              
+                                              radioButtons("de_year_spec", "Choose the Species",
+                                                           c("All" = 1, 
+                                                             "American Black Duck" = "AmBlackDuck",
+                                                             "Canadian Goose" = "CanadianGoose",
+                                                             "Mallard" = "Mallard",
+                                                             "Wood Duck" = "WoodDuck")),
+                                              
                                               plotOutput("yearHist")),
+                             
                              conditionalPanel(condition = "input.DisplayGraph == 3", 
                                               plotOutput("stateHist")), 
+                             
                              conditionalPanel(condition = "input.DisplayGraph == 4", 
                                               plotOutput("stratumHist")),
                              
                              conditionalPanel(condition = "input.DisplayGraph == 5", 
-                                              plotOutput("circTOD")), 
+                                              tableOutput("circTOD")), 
+                             
                              conditionalPanel(condition = "input.DisplayGraph == 6", 
-                                              plotOutput("circWetHab")), 
+                                              plotOutput("circWetHab")),
+                             
                              conditionalPanel(condition = "input.DisplayGraph == 7", 
-                                              plotOutput("hfGraph")), 
+                                              plotOutput("hfGraph"),
+                                              tableOutput("hf")), 
+                             
                              conditionalPanel(condition = "input.DisplayGraph == 8", 
                                               plotOutput("countGraph")), 
                              
-                             submitButton("Graph", "Graph")),
+                             actionButton("Graph", "Graph")),
                       
                       column(3,
-                             checkboxGroupInput("tg", "First Variable Grouping",
+                             checkboxGroupInput("tg", "Variable Grouping",
                                                 c("Species","Year", "State", "Stratum", "Time of Day" = "TimeOfDay",
                                                   "Wetland Habitat" = "WetHab")), 
-                             submitButton("Table", "Table")
+                             actionButton("Table", "Table")
                       ),
                       
                       column(6,
@@ -123,8 +138,6 @@ fluidPage(
                         # NEED mathJax
                         
                         tabPanel("Model Fitting",
-                                 uiOutput("ntrees_num"),
-                                 uiOutput("str_ntrees_num"),
                                  
                                  column(4, "Modelling Choices for all Models", 
                                         sliderInput("split", "Choose the Percentage Of Total Observations in Training Set",
@@ -141,20 +154,22 @@ fluidPage(
                                         selectInput("interactiondepth", "Max Interaction Depth Available to the Trees",
                                                     c(1:10), multiple = TRUE, selectize = FALSE),
                                         selectInput("shrink", "Shrinkage", c(.001, .01, .1),
-                                                    multiple = TRUE, selectize = FALSE),
-                                        selectInput("nminobs", "Minimum Number of Observations in Node",
-                                                    c(100, 500, 750, 1000), multiple = TRUE, selectize = FALSE)),
+                                                    multiple = TRUE, selectize = FALSE)),
+                                         selectInput("nminobs", "Minimum Number of Observations in Node",
+                                                    c(100, 500, 750, 1000), multiple = TRUE, selectize = FALSE),
 
                                  column(4, "Parameter Tuning for Random Forest Models",
                                         selectInput("mtry_num", "mTry", c(1:9),
                                                     multiple = TRUE, selectize = FALSE)),
-                                 
-                                 textOutput("Preds"), 
+
                                  actionButton("Model", "ModelGO"),
                                  
                                  verbatimTextOutput("LMResults"),
-                                 plotOutput("BTResults"),
-                                 plotOutput("RFResults")),
+                                 verbatimTextOutput("BTPlot"),
+                                 verbatimTextOutput("RFResults"),
+                                 verbatimTextOutput("lmRMSE"), 
+                                 verbatimTextOutput("btRMSE"), 
+                                 verbatimTextOutput("rfRMSE")), 
                         
                         # Root Mean Square 
                                  
@@ -162,6 +177,9 @@ fluidPage(
                         
                         # Will want to pass an argument and result in count of birds 
                         tabPanel("Prediction",
+                                 # DO NOT Use the Model from the other tab in this one, if you did that, 
+                                 # you would have to rerun the models, mbe give ppl the option to 
+                                 # choose what kind of model to run w/ conditionals
                                  selectInput("predSpecies", "Choose a Species",
                                              unique(birds$Species)),
                                  numericInput("predYear", "Choose a Year between 1993 through 2015",
@@ -171,7 +189,9 @@ fluidPage(
                                  selectInput("predStrat", "Pick a Stratum",
                                              unique(birds$Stratum)), 
                                  radioButtons("predHab", "Is there a Wetlands habitat nearby?", 
-                                              c("Yes" = "Y", "No" = "N"))
+                                              c("Yes" = "Y", "No" = "N")),
+                                 actionButton("Predict", "Predict"), 
+                                 verbatimTextOutput("PredCount")
                                  # Ignore Plot, Date, TimeofDay, Handfeed bc they are too homogenous
                         )
                         # Select the values of the predictors and obtain a prediction for the response

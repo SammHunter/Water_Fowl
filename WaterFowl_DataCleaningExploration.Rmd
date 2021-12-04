@@ -110,6 +110,7 @@ table(bird_count$Handfeed)
 
 # Overwhelmingly skewed towards 1
 table(bird_count$TimeOfDay)
+plot(bird_count$TimeOfDay)
 
 # Finely distributed 
 table(Stratum)
@@ -205,6 +206,9 @@ ggplot(data = subset(bird_count, 0 <= Count & Count <= 400 )) +
   geom_jitter(aes(x = Year, y = Count, shape = Species, color = State))
 
 
+ggplot(data = subset(bird_count, Species == "WoodDuck")) + 
+        geom_bar(aes(x=Year, fill=State))
+
 # bird_dec <- bird_count %>% mutate(
 #       decade = if_else(1990 <= Year || Year <= 1999, "1993-1999", 
 #                        if_else(2000 <= Year || Year <= 2009, "2000-2009s", "2010+"))) 
@@ -261,7 +265,7 @@ fit <- lm(Count ~ Year + State + Stratum + TimeOfDay + WetHab + Handfeed + Speci
 summary(fit)
 plot(fit)
 
-lmFit1 <- train(Count ~ Year + State + Stratum + TimeOfDay + WetHab + Handfeed + Species,
+lmFit1 <- train(Count ~ Year + State + Stratum + WetHab + Species,
                 data =birds_train, method = "lm", trControl = trainControl(method = "cv", number = 5), 
                 na.action = na.exclude)
 
@@ -271,7 +275,9 @@ summs[["adj.r.squared"]]
 
 summs <- summary(lmFit1)
 
+predict(lmFit1, newdata = birds_test)
 
+predict(lmFit1, newdata = data.frame(yards = c(50, 60)), type = "response", se.fit = TRUE)
 
 
 ```
@@ -300,14 +306,15 @@ names(tune_df) <- c("n.trees","interaction.depth","shrinkage","n.minobsinnode")
 
 cl <- makePSOCKcluster(6)
 registerDoParallel(cl)
-Count_tree <- train(Count ~ Year + State + Handfeed + Species, data = birds_train, method = "gbm",
+Count_tree <- train(Count ~ Year + State + Species, data = birds_train, method = "gbm",
                     trControl = trainControl(method = "repeatedcv", number = 5),
                     tuneGrid = expand.grid(n.trees = c(25, 50, 100, 150, 200),
                     interaction.depth = c(1:4), shrinkage = 0.1, n.minobsinnode = 10),)
 # Plot representing the 
-plot(rfFit, xlab = "Number of Predictors in RF Model", ylab = "Root Mean Square Error (Found through CV)", 
-     main = "Minimizing RMSE")
+plot(Count_tree)
 stopCluster(cl)
+str(Count_tree)
+plot(y = Count_tree[["results"]][["RMSE"]], x = Count_tree[["results"]][["n.trees"]])
 ```
 
 
@@ -322,11 +329,12 @@ rf_SigPred <- train(Count ~ Year + State + Handfeed + Species,
 rf_SigPred
 plot(rf_SigPred)
 
-
-rfFit <- randomForest(Count ~ Year + State + Handfeed + Species,
+library(randomForest)
+rfFit <- randomForest(Count ~ Year + State + Stratum + WetHab + Species,
                       data = birds_train, mtry = 1:4, 
                       ntree = 200, importance = TRUE)
 rfFit
+predict(rfFit, newdata = data.frame(Year = 1993, State = "CT", Stratum = 12, WetHab = "N", Species = "WoodDuck"))
 tree(rfFit)
 # Plot representing the 
 plot(rfFit, xlab = "Number of Predictors in RF Model", ylab = "Root Mean Square Error (Found through CV)", 

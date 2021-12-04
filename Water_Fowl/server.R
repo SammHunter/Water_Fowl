@@ -71,21 +71,19 @@ library(shiny)
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
-  output$Spec <- renderText({
-    input$SpeciesUI
-  })
   
+### EXPLORATION PAGE  
   output$expGraph <- renderPlot({
     range <- input$RangeUI
-    species <- input$SpeciesUI
+    species <- input$de_spec_spec
     min_count <- range[1]
     max_count <- range[2]
     
-    if(input$SpeciesUI == 1){
+    if(input$de_spec_spec == 1){
       scatter <- ggplot(data = subset(bird_count, min_count <= Count & Count <= max_count), 
                         aes(x = Year, y = Count, shape = Species, color = State)) +
         geom_jitter() +
-        stat_smooth(data = subset(bird_count, Species == "AmBlackDuck", 
+        stat_smooth(data = subset(bird_count, Species == "AmBlackDuck",
                                   method = "lm", se = T)) +
         stat_smooth(data = subset(bird_count, Species == "CanadianGoose", 
                                   method = "lm", se = T)) + 
@@ -95,19 +93,24 @@ shinyServer(function(input, output, session) {
                                   method = "lm", se = T))
     }else{
       scatter <- ggplot(data = subset(bird_count, min_count <= Count & Count <= max_count &
-                                        Species == input$SpeciesUI)) +
+                                        Species == input$de_spec_spec)) +
         geom_jitter(aes(x = Year, y = Count, color = State)) + 
-        stat_smooth(data = subset(bird_count, Species == input$SpeciesUI,
-                                  method = "lm", se = T)) 
+        stat_smooth(data = subset(bird_count, Species == input$de_spec_spec,
+                                  method = "lm", se = T), 
+                    (aes(x = Year, y = Count)))
     }
     scatter
   })
   
   output$yearHist <- renderPlot({
-    # Can add option to just see one species at a time
+    if(input$de_year_spec==1){
     ggplot(bird_count) + 
       geom_bar(aes(x=Year, fill=Species), position = "dodge")
-  })
+    }else{
+      ggplot(data = subset(bird_count, Species == input$de_year_spec)) + 
+        geom_bar(aes(x=Year, fill=State))
+    }
+    })
   
   output$stateHist <- renderPlot({
     # Can add option to just see one species at a time
@@ -121,10 +124,12 @@ shinyServer(function(input, output, session) {
       geom_bar(aes(x=Stratum, fill=Species), position = "dodge")
   })
   
-  output$circTOD <- renderPlot({
-    # Can add option to just see one species at a time
-    ggplot(bird_count) + 
-      geom_bar(aes(x=TimeOfDay, fill=Species), position = "dodge")
+  output$circTOD <- renderTable({
+    table(bird_count$TimeOfDay)
+  })
+  
+  output$hf <- renderTable({
+    table(bird_count$Handfeed)
   })
   
   output$circWetHab <- renderPlot({
@@ -154,7 +159,7 @@ shinyServer(function(input, output, session) {
   })
   
   
-  ### MODELLING
+### MODELLING TAB
 
   # User Input Choices for all Models
   cv_num <- eventReactive(input$Model, {
@@ -166,85 +171,165 @@ shinyServer(function(input, output, session) {
   })
 
   pred_train <- eventReactive(input$Model, {
+    set.seed(12)
     trainIndex <- createDataPartition(bird_count$Species, p = split(), list=FALSE)
+    # Training Data Set that is proportional to species dsitr
     birds_train <- bird_count[trainIndex,]
     
     req(input$predictors)
+    # Selecting Predictors
     pred_train <- bird_count %>% select(Count, all_of(input$predictors))
     pred_train
   })
   
-  ## Linear Model
-  output$LMResults <- renderPrint({
+  pred_test <- eventReactive(input$Model, {
+    set.seed(12)
+    trainIndex <- createDataPartition(bird_count$Species, p = split(), list=FALSE)
+    # Testing Data Set that is proportional to species dsitr
+    birds_test <- bird_count[-trainIndex,]
+    
+    req(input$predictors)
+    # Selecting Predictors
+    pred_test <- bird_count %>% select(Count, all_of(input$predictors))
+    pred_test
+  })
+  
+  lmFit <- eventReactive(input$Model, {
     withProgress(message = 'Linear Model', value=0, ({
-      lmFit1 <- train(Count ~ ., data =pred_train(),
+      lmFit <- train(Count ~ ., data =pred_train(),
                       method = "lm", trControl = trainControl(method = "cv", number = cv_num()),
                       na.action = na.exclude)
     }))
-    summary(lmFit1)
+  })
+  
+  ## Linear Model
+  output$LMResults <- renderPrint({
+    summary(lmFit())
   })
   
   ## Boosted Trees
   #User Input Choices
-  
-  ntrees_num <- eventReactive(input$Model, { 
+
+  ntrees_num <- eventReactive(input$Model, {
     input$ntrees
   })
-  
-  interactiondepth <- eventReactive(input$Model, { 
+
+  interactiondepth <- eventReactive(input$Model, {
     input$interactiondepth
   })
-  
+
   shrink <- eventReactive(input$Model, {
     input$shrink
   })
-  
-  nminobs <- eventReactive(input$Model, { 
+
+  nminobs <- eventReactive(input$Model, {
     input$nminobs
   })
-  
-  output$BTResults <- renderPlot({
-    
+
+  bt <- eventReactive(input$Model, {
     withProgress(message = 'Boosted Trees', value=0, ({
       cl <- makePSOCKcluster(6)
       registerDoParallel(cl)
-      Count_tree <- train(Count ~ ., data = pred_train(), method = "gbm",
-                          trControl = trainControl(method = "repeatedcv", number = cv_num()),
-                          tuneGrid = expand.grid(n.trees = c(as.numeric(paste(ntrees_num()))),
-                                                 interaction.depth = c(as.numeric(paste(interactiondepth()))), 
-                                                 shrinkage = c(as.numeric(paste(shrink()))), 
-                                                 n.minobsinnode = c(as.numeric(paste(nminobs())))))
+      btFit <- train(Count ~ ., data = pred_train(), method = "gbm",
+                     trControl = trainControl(method = "repeatedcv", number = cv_num()),
+                     tuneGrid = expand.grid(n.trees = c(as.numeric(paste(ntrees_num()))),
+                                            interaction.depth = c(as.numeric(paste(interactiondepth()))),
+                                            shrinkage = c(as.numeric(paste(shrink()))),
+                                            n.minobsinnode = c(as.numeric(paste(nminobs())))))
       stopCluster(cl)
+      btFit
     }))
-    
-    plot(Count_tree, xlab = "Max Tree Depth (by Interaction)",
-         ylab = "Root Mean Square Error (Found through CV)",
-         main = "Subsetted Predictors - Minimizing RMSE")
   })
-  
-  
+
+  output$BTPlot <- renderPrint({
+    bt()
+  })
+
+
   ## Random Forests
   mtry_num <- eventReactive(input$Model, {
     input$mtry_num
   })
-  
-  output$RFResults <- renderPlot({
+
+  rf <- eventReactive(input$Model, {
     withProgress(message = 'Random Forests', value=0, ({
       cl <- makePSOCKcluster(6)
       registerDoParallel(cl)
-      rf_SigPred <- train(Count~ ., data = pred_train(), method = "rf",
+      rfFit <- train(Count~ ., data = pred_train(), method = "rf",
                           trControl = trainControl(method = "cv", number = cv_num()),
                           tuneGrid = data.frame(mtry = c(as.numeric(paste(mtry_num())))))
       stopCluster(cl)
+      rfFit
     }))
-    rf_SigPred
-    plot(rf_SigPred)
+  })
 
-    # rfImp <- varImp(rf_SigPred)
-    # plot(rfImp,top = 5, main="Random Forest Model\nTop 10 Importance Plot")
+  output$RFResults <- renderPrint({
+    rf()
+  })
+
+  output$lmRMSE <- renderPrint({
+    lmPred <- predict(lmFit(), newdata = pred_test())
+    # Calculating RMSE
+    lmRMSE <- sqrt(mean((lmPred-pred_test()$Count)^2))
+    lmRMSE
   })
   
-  ### Datatable
+  output$btRMSE <- renderPrint({
+    btPred <- predict(bt(), newdata = pred_test())
+    # Calculating RMSE
+    btRMSE <- sqrt(mean((btPred-pred_test()$Count)^2))
+    btRMSE
+  })
+  
+  output$rfRMSE <- renderPrint({
+    rfPred <- predict(rf(), newdata = pred_test())
+    # Calculating RMSE
+    rfRMSE <- sqrt(mean((rfPred-pred_test()$Count)^2))
+    rfRMSE
+  })
+  
+  
+### PREDICTION TAB  
+  pred_species <- observe({
+    input$predSpecies
+  })
+  
+  pred_year <- observe({
+    input$predYear
+  })
+  
+  pred_state <- observe({
+    input$predState
+  })
+  
+  pred_stratum <- observe({
+    input$predStrat
+  })
+  
+  pred_hab <- observe({
+    input$predHab
+  })
+  
+  # This works, but needs to be an observe or reactive event
+  output$PredCount <- renderPrint({
+    lmPred <- randomForest(Count ~ Year + State + Stratum + WetHab + Species,
+                          data = birds_train)
+    lmPred
+    predict(lmPred, newdata = data.frame(Year = input$predYear, State = input$predState,
+                                        Stratum = input$predStrat, WetHab = input$predHab,
+                                        Species = input$predSpecies))
+    
+    rfFit <- randomForest(Count ~ Year + State + Stratum + WetHab + Species,
+                          data = birds_train, mtry = 1:4,
+                          ntree = 200, importance = TRUE)
+
+    predict(rfFit, newdata = data.frame(Year = input$predYear, State = input$predState,
+                                        Stratum = input$predStrat, WetHab = input$predHab,
+                                        Species = input$predSpecies))
+  })
+  
+  
+### DATA TABLE
   # Make table first
   
   
