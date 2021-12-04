@@ -122,8 +122,43 @@ table(Stratum)
 # Here we are showing that we should remove the NA counts. There are records with 0 in line with NA
 # There are 287 of these so it is a really small portion of the data records (per site)
 # missing_data <- birds %>% filter(is.na(AmBlackDuck)|is.na(Mallard)|is.na(WoodDuck)|is.na(CanadianGoose))
+as.factor(bird_count$State)
 ```
 
+```{r}
+birds <- fowls %>% 
+  mutate( 
+    # Combining the old goose counts with the new goose counts, 
+    # if the new count exists, then that is what we will use
+    CanadianGoose = if_else(!is.na(CAGO_TIBN), CAGO_TIBN, CAGO_TIB), 
+    WETHAB = (if_else(WETHAB == "Y", "Yes", "No")), 
+    HANDFEED = if_else(HANDFEED == "Y", "Yes", "No"), 
+    STRATUM = as.character(STRATUM)) %>%
+  
+  rename(Year = YEAR, State = STATE, TimeOfDay = CKTYPE, Plot = PLOT, Date = DATE,
+         Stratum = STRATUM, Mallard = MALL_TIB, AmBlackDuck = ABDU_TIB, 
+         WoodDuck = WODU_TIB) %>%
+  
+  # Removing extra columns - Have the TIBN and TIB data else where
+  # The pairs of birds seems to have been calculated based on the number of birds seen
+  # so I am just using the birds variables -> Maybe come back to automate for Pairs
+  select(!CAGO_TIB, -CAGO_TIBN, -ends_with("_TIP")) %>%
+  
+  # Pivoting the table so each observation denotes the count of one species
+  # (making it easier to filter)
+  pivot_longer(cols = 9:12, names_to = "Species", values_to = "Count") %>%
+  
+  # Only keeping explicit zeroes. The data was square so I assume those were introduced
+  # by the structure as there are plenty of zeroes as well
+  filter(!is.na(Count))
+
+
+# Fixing the dates to actual date instead of character strings
+birds$Date <- mdy(birds$Date)
+
+str(iris)
+str(bird_count)
+```
 
 Variable meaning [https://migbirdapps.fws.gov/mbdc/databases/afbws/aboutafbws.htm]
 

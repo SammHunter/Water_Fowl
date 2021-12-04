@@ -2,6 +2,8 @@ library(shiny)
 library(tidyverse)
 library(lubridate)
 library(caret)
+library(randomForest)
+library(gbm)
 library(DT)
 library(doParallel)
 # Package for the Model Tree regression
@@ -10,19 +12,24 @@ library(rJava)
 library(RWeka)
 
 
-fowls$STRATUM = as.character(fowls$STRATUM)
+#############################################
+############# Data Prep #####################
+#############################################
 
 birds <- fowls %>% 
   mutate( 
     # Combining the old goose counts with the new goose counts, 
-    # if the new count exists, then that is what we will use, otherwise we'll use the old count...
-    # not the best practice but good enough for now
-    CanadianGoose = if_else(!is.na(CAGO_TIBN), CAGO_TIBN, CAGO_TIB)) %>%
+    # if the new count exists, then that is what we will use
+    CanadianGoose = if_else(!is.na(CAGO_TIBN), CAGO_TIBN, CAGO_TIB), 
+    WETHAB = (if_else(WETHAB == "Y", "Yes", "No")), 
+    HANDFEED = if_else(HANDFEED == "Y", "Yes", "No"), 
+    CKTYPE = if_else(CKTYPE == 1, "Midday", 
+                     if_else(CKTYPE == 2, "Twilight", "Not Sampled"))) %>%
   
-  rename(Year = YEAR, State = STATE, TimeOfDay = CKTYPE, Plot = PLOT, Date = DATE,
-         Stratum = STRATUM, WetHab = WETHAB, Handfeed = HANDFEED, 
-         Mallard = MALL_TIB, 
-         AmBlackDuck = ABDU_TIB, 
+  rename(Year = YEAR, State = STATE, TimeOfDay = CKTYPE, 
+         WetHab = WETHAB, Handfeed = HANDFEED,
+         Plot = PLOT, Date = DATE, Stratum = STRATUM, 
+         Mallard = MALL_TIB, AmBlackDuck = ABDU_TIB, 
          WoodDuck = WODU_TIB) %>%
   
   # Removing extra columns - Have the TIBN and TIB data else where
@@ -42,34 +49,22 @@ birds <- fowls %>%
 # Fixing the dates to actual date instead of character strings
 birds$Date <- mdy(birds$Date)
 
-birds <- fowls %>% 
-  mutate( 
-    CanadianGoose = if_else(!is.na(CAGO_TIBN), CAGO_TIBN, CAGO_TIB), 
-    STRATUM = as.character(STRATUM)) %>%
-  
-  rename(Year = YEAR, State = STATE, TimeOfDay = CKTYPE, Plot = PLOT, Date = DATE,
-         Stratum = STRATUM, WetHab = WETHAB, Handfeed = HANDFEED, 
-         Mallard = MALL_TIB, 
-         AmBlackDuck = ABDU_TIB, 
-         WoodDuck = WODU_TIB) %>%
-  
-  select(!CAGO_TIB, -CAGO_TIBN, -ends_with("_TIP")) %>%
-  pivot_longer(cols = 9:12, names_to = "Species", values_to = "Count") %>%
-  filter(!is.na(Count))
-
-
-# Fixing the dates to actual date instead of character strings
-birds$Date <- mdy(birds$Date)
-
 # These are just records where birds were seen, that have a date recorded, and fixing the date
-bird_count <- birds %>% filter(Count != 0)
+bird_count <- birds %>% filter(Count != 0) %>% 
+  mutate(Species = as.factor(Species), State = as.factor(State),
+         Stratum = as.factor(Stratum), WetHab = as.factor(WetHab),
+         Handfeed = as.factor(Handfeed))
 # Over 80% of the records are where no birds were seen so I removed those records
 bird_count <- bird_count %>% filter(-is.na(Date)|Date != "1900-01-01")
 bird_count[bird_count == "1930-04-20"] <- as.Date("2003-04-20")
 
-library(shiny)
 
-# Define server logic required to draw a histogram
+
+#############################################
+################ SERVER #####################
+#############################################
+
+
 shinyServer(function(input, output, session) {
   
 ### EXPLORATION PAGE  
@@ -99,7 +94,6 @@ shinyServer(function(input, output, session) {
                                   method = "lm", se = T), 
                     (aes(x = Year, y = Count)))
     }
-    scatter
   })
   
   output$yearHist <- renderPlot({
@@ -160,7 +154,14 @@ shinyServer(function(input, output, session) {
   
   
 ### MODELLING TAB
+  ## Information
+  output$lmFormula <- renderUI({
+    withMathJax(helpText('Multiple Linear Regression Model:  
+                         $$Y=\\beta_0+\\beta_1\\,X_1+...+\\beta_n\\,X_n+\\epsilon$$'))
+  })
 
+  
+  ### Models
   # User Input Choices for all Models
   cv_num <- eventReactive(input$Model, {
     input$cv
@@ -310,21 +311,39 @@ shinyServer(function(input, output, session) {
     input$predHab
   })
   
-  # This works, but needs to be an observe or reactive event
-  output$PredCount <- renderPrint({
-    lmPred <- randomForest(Count ~ Year + State + Stratum + WetHab + Species,
+  # Prediction from a Linear Model
+  output$lmPredCount <- renderPrint({
+    lmPred <- lm(Count ~ Year + State + Stratum + WetHab + Species,
                           data = birds_train)
-    lmPred
     predict(lmPred, newdata = data.frame(Year = input$predYear, State = input$predState,
-                                        Stratum = input$predStrat, WetHab = input$predHab,
+                                        Stratum = as.numeric(input$predStrat), 
+                                        WetHab = input$predHab,
                                         Species = input$predSpecies))
-    
+  })
+  
+  output$btPredCount <- renderPrint({
+    birds_train$State <- as.factor(birds_train$State)
+    birds_train$WetHab <- as.factor(birds_train$WetHab)
+    birds_train$Species <- as.factor(birds_train$Species)
+    btPred <- gbm(Count ~ Year + State + Stratum + WetHab + Species,
+                  n.trees = 500, shrinkage = 0.1, interaction.depth = 4, 
+                  data = birds_train)
+    btPred
+    # predict(btPred, newdata = data.frame(Year = input$predYear, 
+    #                                      State = as.factor(input$predState),
+    #                                      Stratum = input$predStrat, 
+    #                                      WetHab = input$predHab,
+    #                                      Species = input$predSpecies))
+  })
+  
+  output$rfPredCount <- renderPrint({   
     rfFit <- randomForest(Count ~ Year + State + Stratum + WetHab + Species,
                           data = birds_train, mtry = 1:4,
                           ntree = 200, importance = TRUE)
-
-    predict(rfFit, newdata = data.frame(Year = input$predYear, State = input$predState,
-                                        Stratum = input$predStrat, WetHab = input$predHab,
+    predict(rfFit, newdata = data.frame(Year = input$predYear, 
+                                        State = input$predState,
+                                        Stratum = input$predStrat, 
+                                        WetHab = input$predHab,
                                         Species = input$predSpecies))
   })
   
@@ -333,8 +352,16 @@ shinyServer(function(input, output, session) {
   # Make table first
   
   
-  output$dlTable <- renderDT({
-    bird_count
-  })
+  output$dlTable <- renderDT(
+    bird_count, filter = "top", options = list(pageLength = 50))
+  #   options = list(paging = FALSE))
   
+  output$DuckData <- downloadHandler(
+    filename = "Filtered_Duck.csv", 
+    content = function(file){
+      write.csv(bird_count[input[["dlTable_rows_all"]],],
+                file)}
+  )
 })
+
+

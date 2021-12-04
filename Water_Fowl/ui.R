@@ -2,6 +2,8 @@ library(shiny)
 library(tidyverse)
 library(lubridate)
 library(caret)
+library(gbm)
+library(randomForest)
 library(DT)
 library(doParallel)
 # Packages for the Model Tree regression
@@ -10,20 +12,24 @@ library(rJava)
 library(RWeka)
 
 
-
-fowls$STRATUM = as.character(fowls$STRATUM)
+#############################################
+############# Data Prep #####################
+#############################################
 
 birds <- fowls %>% 
   mutate( 
     # Combining the old goose counts with the new goose counts, 
-    # if the new count exists, then that is what we will use, otherwise we'll use the old count...
-    # not the best practice but good enough for now
-    CanadianGoose = if_else(!is.na(CAGO_TIBN), CAGO_TIBN, CAGO_TIB)) %>%
+    # if the new count exists, then that is what we will use
+    CanadianGoose = if_else(!is.na(CAGO_TIBN), CAGO_TIBN, CAGO_TIB), 
+    WETHAB = (if_else(WETHAB == "Y", "Yes", "No")), 
+    HANDFEED = if_else(HANDFEED == "Y", "Yes", "No"), 
+    CKTYPE = if_else(CKTYPE == 1, "Midday", 
+                  if_else(CKTYPE == 2, "Twilight", "Not Sampled"))) %>%
   
-  rename(Year = YEAR, State = STATE, TimeOfDay = CKTYPE, Plot = PLOT, Date = DATE,
-         Stratum = STRATUM, WetHab = WETHAB, Handfeed = HANDFEED, 
-         Mallard = MALL_TIB, 
-         AmBlackDuck = ABDU_TIB, 
+  rename(Year = YEAR, State = STATE, TimeOfDay = CKTYPE, 
+         WetHab = WETHAB, Handfeed = HANDFEED,
+         Plot = PLOT, Date = DATE, Stratum = STRATUM, 
+         Mallard = MALL_TIB, AmBlackDuck = ABDU_TIB, 
          WoodDuck = WODU_TIB) %>%
   
   # Removing extra columns - Have the TIBN and TIB data else where
@@ -42,101 +48,143 @@ birds <- fowls %>%
 
 # Fixing the dates to actual date instead of character strings
 birds$Date <- mdy(birds$Date)
-# R Studio Layout guide (about halfway down) explains navbarPage() >>> https://shiny.rstudio.com/articles/layout-guide.html
+
+# These are just records where birds were seen, that have a date recorded, and fixing the date
+bird_count <- birds %>% filter(Count != 0) %>% 
+  mutate(Species = as.factor(Species), State = as.factor(State),
+         Stratum = as.factor(Stratum), WetHab = as.factor(WetHab),
+         Handfeed = as.factor(Handfeed))
+# Over 80% of the records are where no birds were seen so I removed those records
+bird_count <- bird_count %>% filter(-is.na(Date)|Date != "1900-01-01")
+bird_count[bird_count == "1930-04-20"] <- as.Date("2003-04-20")
+
+
+#############################################
+################ UI     #####################
+#############################################
 
 fluidPage(
   navbarPage("Water Fowl Counts along the American North-East Coast",
              
-             tabPanel("About", 
-                      "Legalize Murder"),
-             # IN ABOUT:
-             #     - Mention that you don't know if a blank count is a zero or missing so I treated it as zero to be on the
-             #       conservative side for the birds
-             #     - Link to JSTOR
-             
-             # Mallards went from moderate density in 89-92, to great density in 93-97
-             # This is more an exploration of some real data primarily through visualization
-             ### This is not a replication of the study or representative of the study. I was not involved in the study
-             # and I do not reflect the views of that study. This is personal growth and skill development.
-             
-             # - Describe purpose of app, discuss data and source, purpose of each page, include a picture
-             
+#########################
+####### ABOUT ###########
+#########################
+             tabPanel("About",
+                      h1("The Data"), 
+                      h2("Variables"), 
+                      p("What do they stand for? What are the limitations?"), 
+                      h1("Sources"), 
+                      p("JSTOR Link")),
+
+#########################
+### DATA EXPLORATION ####
+#########################
              tabPanel("Data Exploration",
-                      
+
                       column(6, # The radio button decides which variable to explore in the graph
                              radioButtons("DisplayGraph", "Choose the Variable to Explore",
                                           c("Sepcies" = 1, "Year" = 2, "State" = 3, "Stratum" = 4, "Time of Day" = 5,
-                                            "Wetland Habitat" = 6, "Handfeed" = 7, "Count" = 8)), 
-                             
+                                            "Wetland Habitat" = 6, "Handfeed" = 7, "Count" = 8)),
+
                              # This is only displayed for the Species selection
                              # Need the slider to remove values of count in the scatter plot based on Species
                              conditionalPanel(condition = "input.DisplayGraph == 1",
                                               sliderInput("RangeUI", "Limit the Values for Number of Birds Seen",
                                                           min = 1, max = 400, value = c(1, 50)),
-                                              
+
                                               radioButtons("de_spec_spec", "Choose the Species",
-                                                           c("All" = 1, 
+                                                           c("All" = 1,
                                                              "American Black Duck" = "AmBlackDuck",
                                                              "Canadian Goose" = "CanadianGoose",
                                                              "Mallard" = "Mallard",
                                                              "Wood Duck" = "WoodDuck")),
-                                              renderText("Spec"), 
+                                              renderText("Spec"),
                                               plotOutput("expGraph")),
-                             
+
                              # Can add option to just see one species at a time
                              conditionalPanel(condition = "input.DisplayGraph == 2",
-                                              
+
                                               radioButtons("de_year_spec", "Choose the Species",
-                                                           c("All" = 1, 
+                                                           c("All" = 1,
                                                              "American Black Duck" = "AmBlackDuck",
                                                              "Canadian Goose" = "CanadianGoose",
                                                              "Mallard" = "Mallard",
                                                              "Wood Duck" = "WoodDuck")),
-                                              
+
                                               plotOutput("yearHist")),
-                             
-                             conditionalPanel(condition = "input.DisplayGraph == 3", 
-                                              plotOutput("stateHist")), 
-                             
-                             conditionalPanel(condition = "input.DisplayGraph == 4", 
+
+                             conditionalPanel(condition = "input.DisplayGraph == 3",
+                                              plotOutput("stateHist")),
+
+                             conditionalPanel(condition = "input.DisplayGraph == 4",
                                               plotOutput("stratumHist")),
-                             
-                             conditionalPanel(condition = "input.DisplayGraph == 5", 
-                                              tableOutput("circTOD")), 
-                             
-                             conditionalPanel(condition = "input.DisplayGraph == 6", 
+                                              # put map of the stratum here ),
+
+                             conditionalPanel(condition = "input.DisplayGraph == 5",
+                                              tableOutput("circTOD")),
+
+                             conditionalPanel(condition = "input.DisplayGraph == 6",
                                               plotOutput("circWetHab")),
-                             
-                             conditionalPanel(condition = "input.DisplayGraph == 7", 
+
+                             conditionalPanel(condition = "input.DisplayGraph == 7",
                                               plotOutput("hfGraph"),
-                                              tableOutput("hf")), 
-                             
-                             conditionalPanel(condition = "input.DisplayGraph == 8", 
-                                              plotOutput("countGraph")), 
-                             
+                                              tableOutput("hf")),
+
+                             conditionalPanel(condition = "input.DisplayGraph == 8",
+                                              plotOutput("countGraph")),
+
                              actionButton("Graph", "Graph")),
-                      
+
                       column(3,
                              checkboxGroupInput("tg", "Variable Grouping",
                                                 c("Species","Year", "State", "Stratum", "Time of Day" = "TimeOfDay",
-                                                  "Wetland Habitat" = "WetHab")), 
+                                                  "Wetland Habitat" = "WetHab")),
                              actionButton("Table", "Table")
                       ),
-                      
+
                       column(6,
                              DTOutput("summary"))
              ),
-             
+
+#########################
+####### MODELLING #######
+#########################
+
              navbarMenu("Modelling",
-                        
+                        ###############
+                        ### Information
+                        ###############
                         tabPanel("Information on Supervised Learning Methods",
-                                 h4("Multiple Linear Regression, Regression Trees, and Random Forest Model"),
+                                 h1("Information on Supervised Learning Methods"),
+                                 h2("General Information"), 
                                  br(), 
-                                 h4("")
+                                 p("Within the model fitting tab you should first make all your choices and then 
+                                   press the ModelGO button to generate the models. This will take a varying amount of time
+                                   based on how many and how complicated the models run are. The more selections you make, the 
+                                   longer the models take to complete.", style = "font-family: 'times'"),
+                                 p("Each model is created using cross validation on a training set. The size of the training set
+                                   is chosen using the slider. All models will be run with the same predictors and the same number
+                                   of folds.", style = "font-family: 'times'"), 
+                                 br(), 
+                                 h3("Linear Modelling"), 
+                                 uiOutput("lmFormula"), 
+                                 h4("Pros and Cons"),
+                                 
+                                 h3("Boosted Trees"), 
+                                 p(), 
+                                 h4("Pros and Cons"), 
+                                 
+                                 h3("Random Forests"), 
+                                 p(), 
+                                 h4("Pros and Cons")
+                                 
+                                 #columns(8, 
+                                 #)
+                                 
                         ),
-                        # Explain the three modeling approaches, inc the pros and cons of each
-                        # NEED mathJax
-                        
+                        ###############
+                        ####### Fitting
+                        ###############
                         tabPanel("Model Fitting",
                                  
                                  column(4, "Modelling Choices for all Models", 
@@ -175,23 +223,26 @@ fluidPage(
                                  
                                  # Testing the Models on the unseen data, we'll make a comparison on the RMSEs 
                         
-                        # Will want to pass an argument and result in count of birds 
                         tabPanel("Prediction",
-                                 # DO NOT Use the Model from the other tab in this one, if you did that, 
-                                 # you would have to rerun the models, mbe give ppl the option to 
-                                 # choose what kind of model to run w/ conditionals
+                                 ###############
+                                 #### Prediction
+                                 ###############
+                                 checkboxGroupInput("predModel", "Which Model Would You Like to Run", 
+                                                    c("Linear Model"=1, "Boosted Trees"=2, "Random Forest"=3)), 
                                  selectInput("predSpecies", "Choose a Species",
-                                             unique(birds$Species)),
+                                             unique(bird_count$Species)),
                                  numericInput("predYear", "Choose a Year between 1993 through 2015",
                                               min = 1993, max = 2015, value=2000),
                                  selectInput("predState", "Pick an North-Eastern State",
-                                             unique(birds$State)),
+                                             unique(bird_count$State)),
                                  selectInput("predStrat", "Pick a Stratum",
-                                             unique(birds$Stratum)), 
+                                             unique(bird_count$Stratum)), 
                                  radioButtons("predHab", "Is there a Wetlands habitat nearby?", 
-                                              c("Yes" = "Y", "No" = "N")),
+                                              c("Yes", "No")),
                                  actionButton("Predict", "Predict"), 
-                                 verbatimTextOutput("PredCount")
+                                 verbatimTextOutput("lmPredCount"),
+                                 verbatimTextOutput("btPredCount"),
+                                 verbatimTextOutput("rfPredCount")
                                  # Ignore Plot, Date, TimeofDay, Handfeed bc they are too homogenous
                         )
                         # Select the values of the predictors and obtain a prediction for the response
@@ -199,10 +250,29 @@ fluidPage(
              ), 
              
              tabPanel("Data", 
-                      # Scroll through data set, subset data set (rows and columns), save the subsetted data as a file
-                      
-                      downloadButton("downloadData", "Download"), 
-                      DTOutput("dlTable")
-             )
+                      ###############
+                      ####### DATA DL
+                      ###############
+                      selectInput("dataVars", "Variables to Display",
+                                  names(bird_count), multiple = TRUE, selectize = TRUE),
+                      # selectInput("dataSpecies", "Species",
+                      #             unique(birds$Species), multiple = TRUE, selectize = TRUE),
+                      # numericInput("dataYear", "Years",
+                      #              min = 1993, max = 2015, value=2000),
+                      # selectInput("dataState", "States",
+                      #             unique(birds$State), multiple = TRUE, selectize = TRUE),
+                      # selectInput("dataStrat", "Stratums",
+                      #             unique(birds$Stratum), multiple = TRUE, selectize = TRUE), 
+                      # selectInput("dataTOD", "Time of Day",
+                      #             unique(birds$TimeOfDay), multiple = TRUE, selectize = TRUE), 
+                      # selectInput("dataHab", "Wetlands habitat nearby?", 
+                      #              c("Yes", "No"), multiple = TRUE, selectize = TRUE),
+                      # selectInput("dataHF", "Handfeeder nearby?", 
+                      #              c("Yes", "No"), multiple = TRUE, selectize = TRUE),
+                      # 
+                      downloadButton(outputId = "DuckData", 
+                                     label = "Download CSV"), 
+                      DTOutput("dlTable") 
+                      )
   ))
 
