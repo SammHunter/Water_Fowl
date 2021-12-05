@@ -7,9 +7,9 @@ library(randomForest)
 library(DT)
 library(doParallel)
 # Packages for the Model Tree regression
-library(rJava)
-#install.packages("RWeka")
-library(RWeka)
+# library(rJava)
+# #install.packages("RWeka")
+# library(RWeka)
 
 
 #############################################
@@ -46,9 +46,6 @@ birds <- fowls %>%
   # by the structure as there are plenty of zeroes as well
   filter(!is.na(Count))
 
-
-
-
 # These are just records where birds were seen, that have a date recorded, and fixing the date
 bird_count <- birds %>% filter(Count != 0) %>% 
   mutate(Species = as.factor(Species), State = as.factor(State),
@@ -61,6 +58,12 @@ bird_count <- birds %>% filter(Count != 0) %>%
 # bird_count <- bird_count %>% filter(-is.na(Date)|Date != "1900-01-01")
 # bird_count[bird_count == "1930-04-20"] <- as.Date("2003-04-20")
 
+# Creating a training and testing set for the predictions tab. This way the predictions are
+# consistent from session to session. 
+trainIndex <- createDataPartition(bird_count$Species, p = 0.7, list=FALSE)
+
+birds_train <- bird_count[trainIndex,]
+birds_test <- bird_count[-trainIndex,]
 
 #############################################
 ################ UI     #####################
@@ -320,16 +323,16 @@ fluidPage(
                         tabPanel("Model Fitting",
                                  
                                  h1("All Choices of Models"),
-                                 column(4, 
-                                        h3("Modelling Choices for all Models"), 
+                                 column(4,
+                                        h3("Modelling Choices for all Models"),
                                         sliderInput("split", "Choose the Percentage Of Total Observations in Training Set",
-                                                    min = 50, max = 90, value = 70), 
-                                        selectInput("predictors", "Predictors for Bird Count", 
-                                                    names(birds[,c(1:3, 7:9)]), multiple = TRUE, selectize = FALSE), 
-                                        numericInput("cv", "Set the Number of Folds Used in Cross-Validation", 
+                                                    min = 50, max = 90, value = 70),
+                                        selectInput("predictors", "Predictors for Bird Count",
+                                                    names(birds[,c(1:3, 7:9)]), multiple = TRUE, selectize = FALSE),
+                                        numericInput("cv", "Set the Number of Folds Used in Cross-Validation",
                                                      min = 2, max = 10, value = 5)),
                                  
-                                 column(4, 
+                                 column(4,
                                         h3("Boosted Trees"),
                                         selectInput("ntrees", "Number of Trees to Evaluate",
                                                     c(25, 50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500),
@@ -340,7 +343,7 @@ fluidPage(
                                                     multiple = TRUE, selectize = FALSE),
                                         selectInput("nminobs", "Minimum Number of Observations in Node",
                                                     c(100, 500, 750, 1000), multiple = TRUE, selectize = FALSE)),
-                                 column(4, 
+                                 column(4,
                                         h3("Random Forest"),
                                         selectInput("mtry_num", "mTry", c(1:7),
                                                     multiple = TRUE, selectize = FALSE)),
@@ -348,11 +351,12 @@ fluidPage(
                                  actionButton("Model", "Run Models"),
                                  
                                  verbatimTextOutput("LMResults"),
-                                 verbatimTextOutput("BTPlot"),
+                                 verbatimTextOutput("BTResults"),
                                  verbatimTextOutput("RFResults"),
-                                 verbatimTextOutput("lmRMSE"), 
-                                 verbatimTextOutput("btRMSE"), 
-                                 verbatimTextOutput("rfRMSE")),
+                                 verbatimTextOutput("lmRMSE"),
+                                 verbatimTextOutput("btRMSE"),
+                                 verbatimTextOutput("rfRMSE"),
+                                 verbatimTextOutput("modelRMSE")),
                         
                         tabPanel("Prediction",
                                  ###############
@@ -364,20 +368,20 @@ fluidPage(
                                     is the model that we are using to predict thise one. If you noticed, there are no observations for
                                     2009 and 2013. Another survey mentions that no surveys were done in 2013, but I could not find any
                                     reason there was no 2009 data. It is worth noting that even though we don't have data for this value
-                                    we can still calcuate a value for that year."),
-                                 checkboxGroupInput("predModel", "Which Model Would You Like to Run", 
-                                                    c("Linear Model"=1, "Boosted Trees"=2, "Random Forest"=3)), 
+                                    we can still calcuate a value for that year."), 
                                  selectInput("predSpecies", "Choose a Species",
                                              unique(bird_count$Species)),
                                  numericInput("predYear", "Choose a Year between 1993 through 2015",
                                               min = 1993, max = 2015, value=2000),
-                                 selectInput("predState", "Pick an North-Eastern State",
+                                 selectInput("predState", "Pick an Northeastern State",
                                              unique(bird_count$State)),
                                  selectInput("predStrat", "Pick a Stratum",
                                              unique(bird_count$Stratum)), 
                                  radioButtons("predHab", "Is there a Wetlands habitat nearby?", 
                                               c("Yes", "No")),
                                  actionButton("Predict", "Predict"), 
+                                 verbatimTextOutput("lmPredCount"), 
+                                 verbatimTextOutput("btPredCount"), 
                                  verbatimTextOutput("rfPredCount")
                         )), 
              
