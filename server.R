@@ -69,13 +69,13 @@ bird_count <- birds %>% filter(Count != 0) %>%
 shinyServer(function(input, output, session) {
   
 ### EXPLORATION PAGE  
-  output$expGraph <- renderPlot({
+  scatter <- eventReactive(input$Graph,{
+    
+    # Scatter Plot for Count By Year
+    if(input$DisplayGraph == 1 && input$de_spec_spec == 1){
     range <- input$RangeUI
-    species <- input$de_spec_spec
     min_count <- range[1]
     max_count <- range[2]
-    
-    if(input$de_spec_spec == 1){
       scatter <- ggplot(data = subset(bird_count, min_count <= Count & Count <= max_count), 
                         aes(x = Year, y = Count, shape = Species, color = State)) +
         geom_jitter() +
@@ -88,7 +88,12 @@ shinyServer(function(input, output, session) {
         stat_smooth(data = subset(bird_count, Species == "WoodDuck", 
                                   method = "lm", se = T))
       scatter
-    }else{
+    }
+    # Scatter Plot for Count By Year by Species
+    else if(input$DisplayGraph == 1 && input$de_spec_spec != 1){
+      range <- input$RangeUI
+      min_count <- range[1]
+      max_count <- range[2]
       scatter <- ggplot(data = subset(bird_count, min_count <= Count & Count <= max_count &
                                         Species == input$de_spec_spec)) +
         geom_jitter(aes(x = Year, y = Count, color = State)) + 
@@ -96,62 +101,67 @@ shinyServer(function(input, output, session) {
                     (aes(x = Year, y = Count)))
       scatter
     }
-  })
-  
-  output$yearHist <- renderPlot({
-    if(input$de_year_spec==1){
-    ggplot(bird_count) + 
-      geom_bar(aes(x=Year, fill=Species), position = "dodge")
-    }else{
-      ggplot(data = subset(bird_count, Species == input$de_year_spec)) + geom_bar(aes(x=Year, fill=State))
+    # Bar Plots For Year By Species
+    else if(input$DisplayGraph == 2 && input$de_year_spec == 1){
+      yr <- ggplot(bird_count) + 
+        geom_bar(aes(x=Year, color = WetHab), position = "dodge")
+      yr
+    }else if(input$DisplayGraph == 2 && input$de_year_spec != 1){
+      yrsp <- ggplot(data = subset(bird_count, Species == input$de_year_spec)) +
+      geom_histogram(aes(x=Year, color = WetHab))
+      yrsp
     }
-    })
-  
-  output$stateHist <- renderPlot({
-    # Can add option to just see one species at a time
-    ggplot(bird_count) + 
-      geom_bar(aes(x=State, fill=Species), position = "dodge")
+    # State History
+    else if(input$DisplayGraph == 3)
+      {
+      state <- ggplot(bird_count) +
+        geom_bar(aes(x=State, fill=Species), position = "dodge")
+      state
+    }
+    # Stratum
+    else if(input$DisplayGraph == 4){
+      strat <- ggplot(bird_count) +
+        geom_bar(aes(x=Stratum, fill=Species), position = "dodge")
+      strat
+    }
+    # TimeOfDay
+    else if(input$DisplayGraph == 5){
+      plot(5, 15)
+    }
+    # Handfeed
+    else if(input$DisplayGraph == 7){
+      hf <- ggplot(bird_count) +
+        geom_bar(aes(x=Handfeed, fill=Species), position = "dodge")
+      hf
+    }
+    # Wet Hab
+    else if(input$DisplayGraph == 6){
+      hab <- ggplot(bird_count) +
+        geom_bar(aes(x=WetHab, fill=Species), position = "dodge")
+      hab
+    }
+    # Histogram of Counts, looks like Poisson
+    else{
+      count <- ggplot(bird_count) + geom_bar(aes(x=Count, color=Species), position = "dodge")
+      count
+    }
   })
   
-  output$stratumHist <- renderPlot({
-    # Can add option to just see one species at a time
-    ggplot(bird_count) + 
-      geom_bar(aes(x=Stratum, fill=Species), position = "dodge")
+  #strat_rem <- eventReactive()
+  
+  output$expGraph <- renderPlot({
+    scatter()
   })
   
-  output$circTOD <- renderTable({
-    table(bird_count$TimeOfDay)
-  })
-  
-  output$hf <- renderTable({
-    table(bird_count$Handfeed)
-  })
-  
-  output$circWetHab <- renderPlot({
-    # Can add option to just see one species at a time
-    ggplot(bird_count) + 
-      geom_bar(aes(x=WetHab, fill=Species), position = "dodge")
-  })
-  
-  output$hfGraph <- renderPlot({
-    # Can add option to just see one species at a time
-    ggplot(bird_count) + 
-      geom_bar(aes(x=Handfeed, fill=Species), position = "dodge")
-  })
-  
-  output$countGraph <- renderPlot({
-    # Can add option to just see one species at a time
-    ggplot(bird_count) + 
-      geom_bar(aes(x=Count, color=Species), position = "dodge")
-  })
-  
-  output$summary <- renderDT({
+  summs <- eventReactive(input$Table,{
     summary_table <- bird_count %>% group_by(across(all_of(input$tg))) %>%
       summarize(Mean = round(mean(Count),3), Median = round(median(Count), 3), 
                 Range = paste0(min(Count), " - ", max(Count), IQR = IQR(Count)), 
                 Observations = n())
-    summary_table
   })
+  
+  output$summary <- renderDT(summs(), filter = "top", options = list(paging = FALSE, 
+                                                                  autowidth = TRUE))
   
   
   #########################
@@ -215,7 +225,6 @@ shinyServer(function(input, output, session) {
     withProgress(message = 'Linear Model', value=0, {
       for(i in 1:15){
         incProgress(1/15)
-        Sys.sleep(0.25)
       }
       })
 
@@ -252,7 +261,6 @@ shinyServer(function(input, output, session) {
     withProgress(message = 'Boosted Trees', value=0, {
       for(i in 1:15){
         incProgress(1/15)
-        Sys.sleep(0.25)
       }
     })
       cl <- makePSOCKcluster(6)
@@ -280,9 +288,8 @@ shinyServer(function(input, output, session) {
 
   rf <- eventReactive(input$Model, {
     withProgress(message = 'Random Forest', value=0, {
-      for(i in 1:15){
-        incProgress(1/15)
-        Sys.sleep(0.25)
+      for(i in 1:200){
+        incProgress(1/200)
       }
     })
       cl <- makePSOCKcluster(6)
@@ -347,31 +354,10 @@ shinyServer(function(input, output, session) {
     input$predHab
   })
   
-  # Prediction from a Linear Model
-  output$lmPredCount <- renderPrint({
-    lmPred <- lm(Count ~ Year + State + Stratum + WetHab + Species,
-                          data = birds_train)
-    predict(lmPred, newdata = data.frame(Year = input$predYear, State = input$predState,
-                                        Stratum = as.numeric(input$predStrat), 
-                                        WetHab = input$predHab,
-                                        Species = input$predSpecies))
-  })
-  
-  output$btPredCount <- renderPrint({
-    btPred <- gbm(Count ~ Year + State + Stratum + WetHab + Species,
-                  n.trees = 500, shrinkage = 0.1, interaction.depth = 4, 
-                  data = birds_train)
-    btPred
-    # predict(btPred, newdata = data.frame(Year = input$predYear, 
-    #                                      State = as.factor(input$predState),
-    #                                      Stratum = input$predStrat, 
-    #                                      WetHab = input$predHab,
-    #                                      Species = input$predSpecies))
-  })
-  
+  # Prediction from a Random Forest
   output$rfPredCount <- renderPrint({   
     rfFit <- randomForest(Count ~ Year + State + Stratum + WetHab + Species,
-                          data = birds_train, mtry = 1:4,
+                          data = birds_train, mtry = 4,
                           ntree = 200, importance = TRUE)
     predict(rfFit, newdata = data.frame(Year = input$predYear, 
                                         State = input$predState,
@@ -384,10 +370,6 @@ shinyServer(function(input, output, session) {
   ###############
   ####### DATA DL
   ###############
-  # sub_dt <- ({
-  #   datatable(bird_count[, input$dataVars])
-  # })
-  
   dt <- eventReactive(input$dataVars, {
     # Selecting Predictors
     dt <- bird_count %>% select(Count, all_of(input$dataVars))

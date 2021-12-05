@@ -15,6 +15,15 @@ The survey's primary target is to estimate the breeding population size of malla
 #install.packages("tidyverse")
 library(tidyverse)
 
+
+library("shiny")
+library("gbm")
+library("randomForest")
+library("DT")
+library("doParallel")
+library("rJava")
+lapply(packages, library)
+
 # use to fix the date values from character to actual date
 #install.packages("lubridate")
 library(lubridate)

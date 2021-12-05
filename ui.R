@@ -25,7 +25,7 @@ birds <- fowls %>%
     WETHAB = (if_else(WETHAB == "Y", "Yes", "No")), 
     HANDFEED = if_else(HANDFEED == "Y", "Yes", "No"), 
     CKTYPE = if_else(CKTYPE == 1, "Midday", 
-                  if_else(CKTYPE == 2, "Twilight", "Not Sampled"))) %>%
+                     if_else(CKTYPE == 2, "Twilight", "Not Sampled"))) %>%
   
   rename(Year = YEAR, State = STATE, TimeOfDay = CKTYPE, 
          WetHab = WETHAB, Handfeed = HANDFEED,
@@ -69,9 +69,9 @@ bird_count <- birds %>% filter(Count != 0) %>%
 fluidPage(
   navbarPage("Water Fowl Counts along the American North-East Coast",
              
-#########################
-####### ABOUT ###########
-#########################
+             #########################
+             ####### ABOUT ###########
+             #########################
              tabPanel("About",
                       column(6,
                              h1("Acknowledgement"),
@@ -86,7 +86,9 @@ fluidPage(
                                  href = "http://proxying.lib.ncsu.edu/index.php?url=https://www.jstor.org/stable/3783692"),
                                style = "font-family: 'times'; font-si18pt"),
                              br()),
-                      column(6,
+                      column(6, 
+                             img(src = "USFW_logo.png")), 
+                      column(12,
                              h1("Purpose of this App"),
                              p("As mentioned, the purpose of this app is to explore the features of R's Shiny application using
                                a real data set. I wanted something I could show to nearly adult and they would maybe spend at 
@@ -102,8 +104,8 @@ fluidPage(
                                style = "font-family: 'times'; font-si18pt"),
                              br()),
                       column(6,
-                      h1("The Data"),
-                      p("I downloaded the Counts for all available years (1993 - 2013) and all states. The birds 
+                             h1("The Data"),
+                             p("I downloaded the Counts for all available years (1993 - 2013) and all states. The birds 
                         that I chose to investigate are the American black duck, the Candaian goose, the Mallard, and the 
                         Wood Duck. Count are our numeric response variable. The other variables are Stratum, which
                         is a numeric variable that informs the reader of the type of habitat the count was taken in. 
@@ -113,7 +115,7 @@ fluidPage(
                         Sauer's paper."
                         ,style = "font-family: 'times'; font-si18pt"),
                         img(src = "Stratum_Map.png", height = 400, width = 372), 
-                      p("I excluded all counts of 0 from that data because those points made up over 80% of the data
+                        p("I excluded all counts of 0 from that data because those points made up over 80% of the data
                         and without them we still have over 20k observations. I didn't want to mostly predict that we wouldn't
                         see birds because I was concerned that someone would think the predict function is incorrect. Also, I'm
                         not sure how useful that information is. After excluding these 0 counts, I also decided to exclude the
@@ -121,22 +123,22 @@ fluidPage(
                         May. Plot was excluded because I believe it is an indentifying variable, but not one that should have
                         a bearing on the bird counts.",
                         style = "font-family: 'times'; font-si18pt"), 
-                      br()),
+                        br()),
                       column(6, 
-                      h1("The Pages"),
-                      h3("Data Exploration"), 
-                      p("The Data Exploration page allows the user to explore all of the predictors as well as Count. 
+                             h1("The Pages"),
+                             h3("Data Exploration"), 
+                             p("The Data Exploration page allows the user to explore all of the predictors as well as Count. 
                         Depending on the variable chosen, a graph or table may appear, as well as possibly more 
                         ways to investigate the data or a note about the variable. You can change which variable is
                         shown by clicking on the `Graph` button.",
                         style = "font-family: 'times'; font-si18pt"), 
-                      p("There is also a table provided that gives the the mean, median, range, and count of  the
+                        p("There is also a table provided that gives the the mean, median, range, and count of  the
                         data by default. If a variable is chosen, the data is grouped and new mean, median, 
                         ranges, and count are calcuated when the 'Table' button is pressed.",
                         style = "font-family: 'times'; font-si18pt"), 
-                      br(), 
-                      h3("Modelling"), 
-                      p("Within the Modelling page there are three tabs - Information, Model Fitting, and Prediction. 
+                        br(), 
+                        h3("Modelling"), 
+                        p("Within the Modelling page there are three tabs - Information, Model Fitting, and Prediction. 
                         Information has general information about the basic of the supervised models we fit to our
                         data. The Model Fitting tab allows the user to decide on the setting and variables used to fit
                         a multiple linear regression models, boosted tree models, and random forest models. The Prediction
@@ -144,74 +146,56 @@ fluidPage(
                         user to select attributes about the model, the user must provide all the inputs requested of them
                         before a prediction can be output.",
                         style = "font-family: 'times'; font-si18pt"),
-                      br(), 
-                      h3("Data"), 
-                      p("Finally, we have the Data page where the user can select which variables they want to see
+                        br(), 
+                        h3("Data"), 
+                        p("Finally, we have the Data page where the user can select which variables they want to see
                         and what values they want for those variables. If the user desires, they can press hte
                         'Download CSV' button and download the subsetted data set. It will appear as 'Filtered_Duck.CSV'.",
                         style = "font-family: 'times'; font-si18pt"))),
-
-#########################
-### DATA EXPLORATION ####
-#########################
+             
+             #########################
+             ### DATA EXPLORATION ####
+             #########################
              tabPanel("Data Exploration",
                       column(6,
-                      column(3,
-                      # The radio button decides which variable to explore in the graph
-                      radioButtons("DisplayGraph", "Choose the Variable to Explore",
-                                   c("Sepcies" = 1, "Year" = 2, "State" = 3, "Stratum" = 4, "Time of Day" = 5,
-                                     "Wetland Habitat" = 6, "Handfeed" = 7, "Count" = 8))),
-                      column(3,
-                      conditionalPanel(condition = "input.DisplayGraph == 1",
-                                       sliderInput("RangeUI", "Limit the Values for Number of Birds Seen",
-                                                   min = 1, max = 400, value = c(1, 50)),
-                                       
-                                       radioButtons("de_spec_spec", "Choose the Species",
-                                                    c("All" = 1, "American Black Duck" = "AmBlackDuck",
-                                                      "Canadian Goose" = "CanadianGoose", "Mallard" = "Mallard",
-                                                      "Wood Duck" = "WoodDuck")))),
-                      column(3,
-                      conditionalPanel(condition = "input.DisplayGraph == 2",
-                                       radioButtons("de_year_spec", "Choose the Species",
-                                                    c("All" = 1, "American Black Duck" = "AmBlackDuck",
-                                                      "Canadian Goose" = "CanadianGoose", "Mallard" = "Mallard",
-                                                      "Wood Duck" = "WoodDuck"))))),
+                             column(3,
+                                    # The radio button decides which variable to explore in the graph
+                                    radioButtons("DisplayGraph", "Choose the Variable to Explore",
+                                                 c("Sepcies" = 1, "Year" = 2, "State" = 3, "Stratum" = 4, "Time of Day" = 5,
+                                                   "Wetland Habitat" = 6, "Handfeed" = 7, "Count" = 8))),
+                             column(3,
+                                    conditionalPanel(condition = "input.DisplayGraph == 1",
+                                                     sliderInput("RangeUI", "Limit the Values for Number of Birds Seen",
+                                                                 min = 1, max = 400, value = c(1, 50)),
+                                                     
+                                                     radioButtons("de_spec_spec", "Choose the Species",
+                                                                  c("All" = 1, "American Black Duck" = "AmBlackDuck",
+                                                                    "Canadian Goose" = "CanadianGoose", "Mallard" = "Mallard",
+                                                                    "Wood Duck" = "WoodDuck")))),
+                             column(3,
+                                    conditionalPanel(condition = "input.DisplayGraph == 2",
+                                                     radioButtons("de_year_spec", "Choose the Species",
+                                                                  c("All" = 1, "American Black Duck" = "AmBlackDuck",
+                                                                    "Canadian Goose" = "CanadianGoose", "Mallard" = "Mallard",
+                                                                    "Wood Duck" = "WoodDuck"))))),
                       column(6,
-                      checkboxGroupInput("tg", "Variable Grouping for Table",
-                                         c("Species","Year", "State", "Stratum", "Time of Day" = "TimeOfDay",
-                                           "Wetland Habitat" = "WetHab")),
-                      actionButton("Graph", "Graph"),
-                      actionButton("Table", "Table")),
+                             checkboxGroupInput("tg", "Variable Grouping for Table",
+                                                c("Species","Year", "State", "Stratum", "Time of Day" = "TimeOfDay",
+                                                  "Wetland Habitat" = "WetHab")),
+                             actionButton("Graph", "Graph"),
+                             actionButton("Table", "Table")),
                       
-                      column(12, 
-                      conditionalPanel(condition = "input.DisplayGraph == 1",
-                                       plotOutput("expGraph")),
-                      conditionalPanel(condition = "input.DisplayGraph == 2",
-                                       plotOutput("yearHist")),
-                      conditionalPanel(condition = "input.DisplayGraph == 3",
-                                       plotOutput("stateHist")),
-                      conditionalPanel(condition = "input.DisplayGraph == 4",
-                                       plotOutput("stratumHist"), 
-                                       img(src = "Stratum_Map.png", height = 400, width = 372)),
-                      conditionalPanel(condition = "input.DisplayGraph == 5",
-                                       tableOutput("circTOD")),
-                      conditionalPanel(condition = "input.DisplayGraph == 6",
-                                       plotOutput("circWetHab")),
-                      conditionalPanel(condition = "input.DisplayGraph == 7",
-                                       plotOutput("hfGraph"),
-                                       tableOutput("hf")),
-                      conditionalPanel(condition = "input.DisplayGraph == 8",
-                                       plotOutput("countGraph"))),
+                      column(12, plotOutput("expGraph")),
                       br(),
                       br(), 
                       column(12,
-                      DTOutput("summary"))
+                             DTOutput("summary"))
              ),
-
-#########################
-####### MODELLING #######
-#########################
-
+             
+             #########################
+             ####### MODELLING #######
+             #########################
+             
              navbarMenu("Modelling",
                         ###############
                         ### Information
@@ -239,7 +223,7 @@ fluidPage(
                                    format (so from Counts for several birds per observation into one count per observation). Finally, for
                                    the modelling tab, I don't allow the user to run models using those variables that do not have enough 
                                    observations in each category to model those predictors. Think about it, if you don't have any observations
-                                   involving that category, there is no data to model. In this case, those variables are TimeOfDay and Handfeed.", 
+                                   involving that category, there is no data to model. In this case, that is just the TimeOfDay predictor.", 
                                    style = "font-family: 'times'; font-si18pt"),
                                  br(), 
                                  p("Within the model fitting tab you should first make all your choices and then 
@@ -270,9 +254,9 @@ fluidPage(
                                  br(), 
                                  
                                  column(4,
-                                 h3("Linear Modelling"), 
-                                 uiOutput("lmFormula"), 
-                                 p("$Y_i$ is our response variable. In our case, this is counts. The $//beta$'s represent
+                                        h3("Linear Modelling"), 
+                                        uiOutput("lmFormula"), 
+                                        p("$Y_i$ is our response variable. In our case, this is counts. The $//beta$'s represent
                                    the coefficients of the predictors. An easy example I think of the price of a house based on the 
                                    number of square feet it is. I kept our the users of this data set to a model with neither interactions
                                    nor higher order terms. Interactions can be thought of those predictors who may have a strong correlation
@@ -283,25 +267,25 @@ fluidPage(
                                    I didn't include either of those here because I expected we would need a flexible model to account for
                                    the amout of data we have and the other two, more flexible models already take a very long to calcuate.", 
                                    style = "font-family: 'times'; font-si18pt"), 
-                                 
-                                 p("The linear model is great because it is easy to understand, and very applicable. Unfortunately, 
+                                   
+                                   p("The linear model is great because it is easy to understand, and very applicable. Unfortunately, 
                                    outliers can have a huge affect on the model and as we saw in our exploration, we seem to have a lot
                                    of outliers. The linear model we use assumes also assumes independence between predictors. That just means
                                    that the predictors don't affect each other, but because we mostly have character predictors I have no idea
                                    if that is true.", 
                                    style = "font-family: 'times'; font-si18pt")),
-                        
+                                 
                                  
                                  column(4, 
-                                 h3("Boosted Trees"), 
-                                 p("This model type and Random Forest are quite similar. They are both more flexible than 
+                                        h3("Boosted Trees"), 
+                                        p("This model type and Random Forest are quite similar. They are both more flexible than 
                                    the linear regression model. They both are tree models. Normally tree models are great because
                                    they are also very easy to interpret, but, ironically, that is not true in either of these models' cases. 
                                    The procedure for theboosted tree approach is one where the trees are grown one sequentially. Each tree is a 
                                    modified version of the one before and the predictions are updated as the tree is grown. The user gets the 
                                    most choices for this one.", 
                                    style = "font-family: 'times'; font-si18pt"),
-                                 
+                                   
                                    p("'n.trees' = How many trees the program will look at before stopping. The higher the number, the more trees
                                      are looked at. We want this number to be large so we can catch when the tree stops changing (converges).
                                    'interaction.depth'= Interaction depth is how many models can interact withe each other. 
@@ -312,11 +296,11 @@ fluidPage(
                                    'shrinkage' = Called the shrinkage parameter, or the learning rate. A smaller learning rate typically requires 
                                    more trees.", 
                                    style = "font-family: 'times'; font-si18pt")),
-                     
+                                 
                                  
                                  column(4,
-                                 h3("Random Forests"), 
-                                 p("This is the most conceptual model we have. We are doing both cross-validation and bootstrapping. Bootstrapping
+                                        h3("Random Forests"), 
+                                        p("This is the most conceptual model we have. We are doing both cross-validation and bootstrapping. Bootstrapping
                                    is the process of resampling the training data set with replacement to create estimates. It is another method for
                                    reducing variance in the model. Random forests do not use all the predictors. In theory, a strong predictor will
                                    exist and most of the bootstrap samples will use this strong predictor for the first split in a tree branch. While
@@ -328,8 +312,8 @@ fluidPage(
                                    divided by 3 or the square root of them. In this case, that is somewhere around 2, but you can go use all 5 predictors.
                                    If you use all of the predictors, that is a special case of the random forest method called boosting.", 
                                    style = "font-family: 'times'; font-si18pt"))
-                                 ),
-
+                        ),
+                        
                         ###############
                         ####### Fitting
                         ###############
@@ -341,9 +325,9 @@ fluidPage(
                                         sliderInput("split", "Choose the Percentage Of Total Observations in Training Set",
                                                     min = 50, max = 90, value = 70), 
                                         selectInput("predictors", "Predictors for Bird Count", 
-                                                   names(birds[,c(1:3, 6:9)]), multiple = TRUE, selectize = FALSE), 
+                                                    names(birds[,c(1:3, 7:9)]), multiple = TRUE, selectize = FALSE), 
                                         numericInput("cv", "Set the Number of Folds Used in Cross-Validation", 
-                                              min = 2, max = 10, value = 5)),
+                                                     min = 2, max = 10, value = 5)),
                                  
                                  column(4, 
                                         h3("Boosted Trees"),
@@ -351,16 +335,16 @@ fluidPage(
                                                     c(25, 50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500),
                                                     multiple = TRUE, selectize = FALSE),
                                         selectInput("interactiondepth", "Max Interaction Depth Available to the Trees",
-                                                    c(1:10), multiple = TRUE, selectize = FALSE),
+                                                    c(1:5), multiple = TRUE, selectize = FALSE),
                                         selectInput("shrink", "Shrinkage", c(.001, .01, .1),
                                                     multiple = TRUE, selectize = FALSE),
-                                         selectInput("nminobs", "Minimum Number of Observations in Node",
+                                        selectInput("nminobs", "Minimum Number of Observations in Node",
                                                     c(100, 500, 750, 1000), multiple = TRUE, selectize = FALSE)),
                                  column(4, 
                                         h3("Random Forest"),
-                                        selectInput("mtry_num", "mTry", c(1:9),
+                                        selectInput("mtry_num", "mTry", c(1:7),
                                                     multiple = TRUE, selectize = FALSE)),
-
+                                 
                                  actionButton("Model", "Run Models"),
                                  
                                  verbatimTextOutput("LMResults"),
@@ -374,6 +358,13 @@ fluidPage(
                                  ###############
                                  #### Prediction
                                  ###############
+                                 h1("Prediction"),
+                                 h6("Based on most of the models that I ran, which was only a few because of how long they take, 
+                                    I mostly saw that the RMSE was minimized for the random forest, with an mtry value of 4. That 
+                                    is the model that we are using to predict thise one. If you noticed, there are no observations for
+                                    2009 and 2013. Another survey mentions that no surveys were done in 2013, but I could not find any
+                                    reason there was no 2009 data. It is worth noting that even though we don't have data for this value
+                                    we can still calcuate a value for that year."),
                                  checkboxGroupInput("predModel", "Which Model Would You Like to Run", 
                                                     c("Linear Model"=1, "Boosted Trees"=2, "Random Forest"=3)), 
                                  selectInput("predSpecies", "Choose a Species",
@@ -387,8 +378,6 @@ fluidPage(
                                  radioButtons("predHab", "Is there a Wetlands habitat nearby?", 
                                               c("Yes", "No")),
                                  actionButton("Predict", "Predict"), 
-                                 verbatimTextOutput("lmPredCount"),
-                                 verbatimTextOutput("btPredCount"),
                                  verbatimTextOutput("rfPredCount")
                         )), 
              
@@ -397,10 +386,10 @@ fluidPage(
                       ####### DATA DL
                       ###############
                       selectizeInput("dataVars", "Variables to Display",
-                                  names(bird_count), selected = names(bird_count), multiple = TRUE),
+                                     names(bird_count), selected = names(bird_count), multiple = TRUE),
                       downloadButton(outputId = "DuckData", 
                                      label = "Download CSV"), 
                       DTOutput("dlTable") 
-                      )
+             )
   ))
 
