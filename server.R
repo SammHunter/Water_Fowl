@@ -1,21 +1,11 @@
-library(shiny)
-library(tidyverse)
-library(lubridate)
-library(caret)
-library(randomForest)
-library(gbm)
-library(DT)
-library(doParallel)
-# Package for the Model Tree regression
-#install.packages("RWeka")
-library(rJava)
-library(RWeka)
+pckg <- c("shiny", "tidyverse", "lubridate", "caret", "randomForest", "gbm", "DT", "doParallel", "rJava", "RWeka")
+lapply(pckg, library, character.only = TRUE)
 
 
 #############################################
 ############# Data Prep #####################
 #############################################
-#fowls <- read.csv("data/duck_data.csv")
+fowls <- read.csv("duck_data.csv")
 
 birds <- fowls %>% 
   mutate( 
@@ -59,6 +49,10 @@ bird_count <- birds %>% filter(Count != 0) %>%
 # bird_count <- bird_count %>% filter(-is.na(Date)|Date != "1900-01-01")
 # bird_count[bird_count == "1930-04-20"] <- as.Date("2003-04-20")
 
+trainIndex <- createDataPartition(bird_count$Species, p = 0.7, list=FALSE)
+
+birds_train <- bird_count[trainIndex,]
+birds_test <- bird_count[-trainIndex,]
 
 
 #############################################
@@ -85,59 +79,80 @@ shinyServer(function(input, output, session) {
         stat_smooth(data = subset(bird_count, Species == "Mallard", 
                                   method = "lm", se = T)) + 
         stat_smooth(data = subset(bird_count, Species == "WoodDuck", 
-                                  method = "lm", se = T))
+                                  method = "lm", se = T)) +
+        labs( x = "Year Count was Recorded", y = "Count",
+              title ="Linear Trendlines of the Count over the Year",
+              subtitle = "Each Line Represents a Different Bird Species",
+              caption = "You can remove outliers or only look at outliers by using the slider
+              and then pressing the Graph button again")
       scatter}
     else if(input$DisplayGraph == 1 && input$de_spec_spec != 1){
       scatter <- ggplot(data = subset(bird_count, min_count <= Count & Count <= max_count &
                                         Species == input$de_spec_spec)) +
         geom_jitter(aes(x = Year, y = Count, color = State)) + 
         stat_smooth(data = subset(bird_count, Species == input$de_spec_spec, method = "lm", se = T), 
-                    (aes(x = Year, y = Count)))
+                    (aes(x = Year, y = Count)))+
+        labs( x = "Year Count was Recorded", y = "Count",
+              title ="Linear Trendlines of the Count over the Year",
+              subtitle = "One one bird is view here.",
+              caption = "Again, you can remove outliers or only look at outliers by using the slider
+              and then pressing the Graph button again")
       scatter
     } 
       # Bar Plots For Year By Species
     else if(input$DisplayGraph == 2 && input$de_year_spec == 1){
         yr <- ggplot(bird_count) + 
-          geom_bar(aes(x=Year, fill = Species), position = "dodge")
+          geom_bar(aes(x=Year, fill = Species), position = "dodge")+
+          labs(x = "", y = "Count",
+                title ="Histogram of Instances Birds Were Seen by Year")
         yr
       }else if(input$DisplayGraph == 2 && input$de_year_spec != 1){
         yrsp <- ggplot(data = subset(bird_count, Species == input$de_year_spec)) +
-          geom_histogram(aes(x=Year, fill = Species))
+          geom_histogram(aes(x=Year, fill = Species))+
+          labs(x = "Year", y = "Count",
+               title ="Histogram of Instances Birds Were Seen by Year")
         yrsp
       }
       # State History
-      else if(input$DisplayGraph == 3)
-      {
+      else if(input$DisplayGraph == 3){
         state <- ggplot(bird_count) +
-          geom_bar(aes(x=State, fill=Species), position = "dodge")
+          geom_bar(aes(x=State, fill=Species), position = "dodge")+
+          labs(x = "State", y = "Count",
+               title ="Histogram of Instances Birds Were Seen by State")
         state
       }
       # Stratum
       else if(input$DisplayGraph == 4){
         strat <- ggplot(bird_count) +
-          geom_bar(aes(x=Stratum, fill=Species), position = "dodge")
+          geom_bar(aes(x=Stratum, fill=Species), position = "dodge")+
+          labs(x = "Stratum", y = "Count",
+               title ="Histogram of Instances Birds Were Seen by Stratum")
         strat
-      }
-      # TimeOfDay
-      else if(input$DisplayGraph == 5){
-        plot(5, 15)
       }
       # Handfeed
       else if(input$DisplayGraph == 7){
         hf <-ggplot(bird_count, aes(x=Handfeed), ) + 
-          geom_bar() #+
-          #stat_bin(aes(y=..count.., label=..count..), geom="text", vjust=-.5) 
+          geom_bar() +
+          labs(x = "Handfeeder Nearby?", y = "Count",
+               title ="Was there a handfeeder nearby when the birds were seen?", 
+               caption = "We can see many more sites lack a handfeeder than have one.")
         hf
       }
       # Wet Hab
       else if(input$DisplayGraph == 6){
         hab <- ggplot(bird_count) +
-          geom_bar(aes(x=WetHab, fill=Species), position = "dodge")
+          geom_bar(aes(x=WetHab, fill=Species), position = "dodge") +
+          labs(x = "Handfeeder Nearby?", y = "Count",
+               title ="Was there a handfeeder nearby when the birds were seen?", 
+               caption = "We can see many more sites lack a handfeeder than have one.")
         hab
       }
       # Histogram of Counts, looks like Poisson
       else{
-        count <- ggplot(bird_count) + geom_bar(aes(x=Count, color=Species), position = "dodge")
+        count <- ggplot(bird_count) + geom_bar(aes(x=Count, color=Species), position = "dodge") +
+          labs(x = "Number of Birds Seen per Site", y = "Count",
+               title ="Histogram of the number of birds that were seen at each site.", 
+               caption = "While this is very hard to see, we can see that we have a pretty classic Poisson distribution.")
         count
       }
     })
@@ -252,9 +267,9 @@ shinyServer(function(input, output, session) {
   
   bt <- eventReactive(input$Model, {
     withProgress(message = 'Boosted Trees', value=0, {
-      for(i in 1:15){
-        incProgress(1/15)
-        Sys.sleep(0.25)
+      for(i in 1:60){
+        incProgress(1/60)
+        Sys.sleep(3)
       }
     })
     cl <- makePSOCKcluster(6)
@@ -282,9 +297,9 @@ shinyServer(function(input, output, session) {
   
   rf <- eventReactive(input$Model, {
     withProgress(message = 'Random Forest', value=0, {
-      for(i in 1:15){
-        incProgress(1/15)
-        Sys.sleep(0.25)
+      for(i in 1:60){
+        incProgress(1/60)
+        Sys.sleep(3)
       }
     })
     cl <- makePSOCKcluster(6)
@@ -392,9 +407,6 @@ shinyServer(function(input, output, session) {
   ###############
   ####### DATA DL
   ###############
-  # sub_dt <- ({
-  #   datatable(bird_count[, input$dataVars])
-  # })
   
   dt <- eventReactive(input$dataVars, {
     # Selecting Predictors
@@ -403,7 +415,7 @@ shinyServer(function(input, output, session) {
   })
   
   output$dlTable <- renderDT(
-    dt(), filter = "top", options = list(pageLength = 50, 
+    dt(), filter = "top", options = list(paging = FALSE, 
                                          autowidth = TRUE))
   #   options = list(paging = FALSE))
   

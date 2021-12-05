@@ -18,7 +18,9 @@ The packages used to complete this project are:
 *RWeka
 
 Install and access all packages:
-`pacman::p_load(shiny, tidyverse, lubridate, caret, randomForest, gbm, DT, doParallel, rJava, RWeka)`
+`pckg <- c("shiny", "tidyverse", "lubridate", "caret", "randomForest", "gbm", "DT", "doParallel", "rJava", "RWeka")`
+
+`lapply(pckg, library, character.only = TRUE)`
 
 Render Code:
-`runGitHub(Water_Fowl, username = getOption("sammhunter"))`
+`shiny::runGitHub("sammhunter/Water_Fowl", ref="main")`

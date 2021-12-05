@@ -1,21 +1,10 @@
-library(shiny)
-library(tidyverse)
-library(lubridate)
-library(caret)
-library(gbm)
-library(randomForest)
-library(DT)
-library(doParallel)
-# Packages for the Model Tree regression
-# library(rJava)
-# #install.packages("RWeka")
-# library(RWeka)
-
+pckg <- c("shiny", "tidyverse", "lubridate", "caret", "randomForest", "gbm", "DT", "doParallel", "rJava", "RWeka")
+lapply(pckg, library, character.only = TRUE)
 
 #############################################
 ############# Data Prep #####################
 #############################################
-#fowls <- read.csv("duck_data.csv")
+fowls <- read.csv("duck_data.csv")
 
 birds <- fowls %>% 
   mutate( 
@@ -164,7 +153,7 @@ fluidPage(
                              column(3,
                                     # The radio button decides which variable to explore in the graph
                                     radioButtons("DisplayGraph", "Choose the Variable to Explore",
-                                                 c("Sepcies" = 1, "Year" = 2, "State" = 3, "Stratum" = 4, "Time of Day" = 5,
+                                                 c("Sepcies" = 1, "Year" = 2, "State" = 3, "Stratum" = 4,
                                                    "Wetland Habitat" = 6, "Handfeed" = 7, "Count" = 8))),
                              column(3,
                                     conditionalPanel(condition = "input.DisplayGraph == 1",
