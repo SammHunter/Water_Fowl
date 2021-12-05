@@ -71,34 +71,73 @@ fluidPage(
 ####### ABOUT ###########
 #########################
              tabPanel("About",
-                      h1("Acknowledgement"),
-                      p("I would first like that like to thank H. W. Heusmann and John R. Sauer for publishing their 
-                        data on the US Fish and Wildlife’s site, and then I would like to apologize to them for abusing
-                        their data. Because the point of this project was to really get some good practice with R Shiny 
-                        and review the supervised learning models, I did several things that a statistician should never do
-                        (which is described more in Data section below). In my defense, I didn’t want my app to 
-                        boring. If you are interested in the actual conclusions from this survey, please read ", 
-                        a("The Northeastern States' Waterfowl Breeding Population Survey", 
-                          href = "http://proxying.lib.ncsu.edu/index.php?url=https://www.jstor.org/stable/3783692")),
-                      br(""),
-                      h1("Purpose of this App"),
-                      p("As mentioned, the purpose of this app is to explore the features of R's Shiny application using
-                        a real data set. We are using a fairly straight-foward data set from USFW about the counts of 
-                        migratory birds in the Northeastern coast. The",
-                        a("Atlantic Flyway Breeding Waterfowl Survey Homepage", 
-                          href = "https://migbirdapps.fws.gov/mbdc/databases/afbws/afbws.asp"), 
-                        "has tabs that both briefly describe the data as well as the ability to retrieve the data. The 
-                        highlights are that this survey, which has data published from 1993 to 2015 was 'designed
-                        to primarily estimate breeding population size of mallards, black ducks, wood ducks, and Canada geese', 
-                        but other bird counts were recorded. I only retrieved data on the first four ducks listed."),
-                      br(),
+                      column(6,
+                             h1("Acknowledgement"),
+                             p("I would first like that like to thank H. W. Heusmann and John R. Sauer for publishing their
+                               data on the US Fish and Wildlife’s site, and then I would like to apologize to them for abusing
+                               their data. Because the point of this project was to really get some good practice with R Shiny 
+                               and review the supervised learning models, I did several things that a statistician should never do
+                               (which is described more in Data section below). In my defense, I didn’t want my app to 
+                               boring and I don't know much about migratory birds of the Northeastern states.
+                               If you are interested in the actual conclusions from this survey, please read ",
+                               a("The Northeastern States' Waterfowl Breeding Population Survey",
+                                 href = "http://proxying.lib.ncsu.edu/index.php?url=https://www.jstor.org/stable/3783692")),
+                             br()),
+                      column(6,
+                             h1("Purpose of this App"),
+                             p("As mentioned, the purpose of this app is to explore the features of R's Shiny application using
+                               a real data set. We are using a fairly straight-foward data set from USFW about the counts of 
+                               migratory birds in the Northeastern coast. The",
+                               a("Atlantic Flyway Breeding Waterfowl Survey Homepage", 
+                                 href = "https://migbirdapps.fws.gov/mbdc/databases/afbws/afbws.asp"), 
+                               "has tabs that both briefly describe the data as well as the ability to retrieve the data. The 
+                               highlights are that this survey, which has data published from 1993 to 2015 was 'designed
+                               to primarily estimate breeding population size of mallards, black ducks, wood ducks, and Canada geese', 
+                               but other bird counts were recorded. I only retrieved data on the first four ducks listed."),
+                             br()),
+                      column(6,
                       h1("The Data"),
-                      h2("Variables Included"),
-                      h2("Variables Excluded"), 
-                      h2("Sketchy Stat Stuff"), 
-                      h1("Data Exploration"), 
-                      h1("Modelling"), 
-                      h1("Data")),
+                      p("I downloaded the Counts for all available years (1993 - 2013) and all states. The birds 
+                        that I chose to investigate are the American black duck, the Candaian goose, the Mallard, and the 
+                        Wood Duck. Count are our numeric response variable. The other variables are Stratum, which
+                        is a numeric variable that informs the reader of the type of habitat the count was taken in. 
+                        Figure 1 is a map from the published paper that shows where the stratum borders are found. 
+                        Time of day indicates when the bird was seen. Wethab and Handfeed indicate whethere a wetland
+                        habitat or handfeeder is nearby, although I did not see nearby defined within the Heusmann's and 
+                        Sauer's paper."),
+                        img(src = "Stratum_Map.png", height = 400, width = 372), 
+                      p("I excluded all counts of 0 from that data because those points made up over 80% of the data
+                        and without them we still have over 20k observations. I didn't want to mostly predict that we wouldn't
+                        see birds because I was concerned that someone would think the predict function is incorrect. Also, I'm
+                        not sure how useful that information is. After excluding these 0 counts, I also decided to exclude the
+                        Date and Plot information. Date was excluded becaues all but four observations take place in April or
+                        May. Plot was excluded because I believe it is an indentifying variable, but not one that should have
+                        a bearing on the bird counts."), 
+                      br()),
+                      column(6, 
+                      h1("The Pages"),
+                      h3("Data Exploration"), 
+                      p("The Data Exploration page allows the user to explore all of the predictors as well as Count. 
+                        Depending on the variable chosen, a graph or table may appear, as well as possibly more 
+                        ways to investigate the data or a note about the variable. You can change which variable is
+                        shown by clicking on the `Graph` button."), 
+                      p("There is also a table provided that gives the the mean, median, range, and count of  the
+                        data by default. If a variable is chosen, the data is grouped and new mean, median, 
+                        ranges, and count are calcuated when the 'Table' button is pressed."), 
+                      br(), 
+                      h3("Modelling"), 
+                      p("Within the Modelling page there are three tabs - Information, Model Fitting, and Prediction. 
+                        Information has general information about the basic of the supervised models we fit to our
+                        data. The Model Fitting tab allows the user to decide on the setting and variables used to fit
+                        a multiple linear regression models, boosted tree models, and random forest models. The Prediction
+                        tab allows the user to get a Count based on the values provided. While the previous tab allowed the
+                        user to select attributes about the model, the user must provide all the inputs requested of them
+                        before a prediction can be output."),
+                      br(), 
+                      h3("Data"), 
+                      p("Finally, we have the Data page where the user can select which variables they want to see
+                        and what values they want for those variables. If the user desires, they can press hte
+                        'Download CSV' button and download the subsetted data set. It will appear as 'Filtered_Duck.CSV'."))),
 
 #########################
 ### DATA EXPLORATION ####
