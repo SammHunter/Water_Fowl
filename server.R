@@ -55,9 +55,9 @@ bird_count <- birds %>% filter(Count != 0) %>%
   mutate(Species = as.factor(Species), State = as.factor(State),
          Stratum = as.factor(Stratum), WetHab = as.factor(WetHab),
          Handfeed = as.factor(Handfeed))
-# Over 80% of the records are where no birds were seen so I removed those records
-bird_count <- bird_count %>% filter(-is.na(Date)|Date != "1900-01-01")
-bird_count[bird_count == "1930-04-20"] <- as.Date("2003-04-20")
+# # Over 80% of the records are where no birds were seen so I removed those records
+# bird_count <- bird_count %>% filter(-is.na(Date)|Date != "1900-01-01")
+# bird_count[bird_count == "1930-04-20"] <- as.Date("2003-04-20")
 
 
 
@@ -87,13 +87,14 @@ shinyServer(function(input, output, session) {
                                   method = "lm", se = T)) + 
         stat_smooth(data = subset(bird_count, Species == "WoodDuck", 
                                   method = "lm", se = T))
+      scatter
     }else{
       scatter <- ggplot(data = subset(bird_count, min_count <= Count & Count <= max_count &
                                         Species == input$de_spec_spec)) +
         geom_jitter(aes(x = Year, y = Count, color = State)) + 
-        stat_smooth(data = subset(bird_count, Species == input$de_spec_spec,
-                                  method = "lm", se = T), 
+        stat_smooth(data = subset(bird_count, Species == input$de_spec_spec, method = "lm", se = T), 
                     (aes(x = Year, y = Count)))
+      scatter
     }
   })
   
@@ -102,8 +103,7 @@ shinyServer(function(input, output, session) {
     ggplot(bird_count) + 
       geom_bar(aes(x=Year, fill=Species), position = "dodge")
     }else{
-      ggplot(data = subset(bird_count, Species == input$de_year_spec)) + 
-        geom_bar(aes(x=Year, fill=State))
+      ggplot(data = subset(bird_count, Species == input$de_year_spec)) + geom_bar(aes(x=Year, fill=State))
     }
     })
   
@@ -161,6 +161,11 @@ shinyServer(function(input, output, session) {
   ###############
   ### Information
   ###############
+  output$rmseFormula <- renderUI({
+    withMathJax(helpText('RMSE:  
+                         $$\\frac{1}{n}\\sum_{i=1}^{n}\\,X_n$$'))
+  })
+  
   output$lmFormula <- renderUI({
     withMathJax(helpText('Multiple Linear Regression Model:  
                          $$Y=\\beta_0+\\beta_1\\,X_1+...+\\beta_n\\,X_n+\\epsilon$$'))
@@ -202,17 +207,23 @@ shinyServer(function(input, output, session) {
     pred_test
   })
   
-  lmFit <- eventReactive(input$Model, {
-    withProgress(message = 'Linear Model', value=0, ({
-      lmFit <- train(Count ~ ., data =pred_train(),
-                      method = "lm", trControl = trainControl(method = "cv", number = cv_num()),
-                      na.action = na.exclude)
-    }))
-  })
   
   ###############
   ## Linear Model
   ###############
+  lmFit <- eventReactive(input$Model, {
+    withProgress(message = 'Linear Model', value=0, {
+      for(i in 1:15){
+        incProgress(1/15)
+        Sys.sleep(0.25)
+      }
+      })
+
+      lmFit <- train(Count ~ ., data =pred_train(),
+                      method = "lm", trControl = trainControl(method = "cv", number = cv_num()),
+                      na.action = na.exclude)
+    })
+
   output$LMResults <- renderPrint({
     summary(lmFit())
   })
@@ -238,7 +249,12 @@ shinyServer(function(input, output, session) {
   })
 
   bt <- eventReactive(input$Model, {
-    withProgress(message = 'Boosted Trees', value=0, ({
+    withProgress(message = 'Boosted Trees', value=0, {
+      for(i in 1:15){
+        incProgress(1/15)
+        Sys.sleep(0.25)
+      }
+    })
       cl <- makePSOCKcluster(6)
       registerDoParallel(cl)
       btFit <- train(Count ~ ., data = pred_train(), method = "gbm",
@@ -249,8 +265,7 @@ shinyServer(function(input, output, session) {
                                             n.minobsinnode = c(as.numeric(paste(nminobs())))))
       stopCluster(cl)
       btFit
-    }))
-  })
+    })
 
   output$BTPlot <- renderPrint({
     bt()
@@ -264,7 +279,12 @@ shinyServer(function(input, output, session) {
   })
 
   rf <- eventReactive(input$Model, {
-    withProgress(message = 'Random Forests', value=0, ({
+    withProgress(message = 'Random Forest', value=0, {
+      for(i in 1:15){
+        incProgress(1/15)
+        Sys.sleep(0.25)
+      }
+    })
       cl <- makePSOCKcluster(6)
       registerDoParallel(cl)
       rfFit <- train(Count~ ., data = pred_train(), method = "rf",
@@ -272,7 +292,6 @@ shinyServer(function(input, output, session) {
                           tuneGrid = data.frame(mtry = c(as.numeric(paste(mtry_num())))))
       stopCluster(cl)
       rfFit
-    }))
   })
 
   output$RFResults <- renderPrint({
@@ -365,12 +384,18 @@ shinyServer(function(input, output, session) {
   ###############
   ####### DATA DL
   ###############
-  # sub_count <- eventReactive(input$dataVars, {
+  # sub_dt <- ({
   #   datatable(bird_count[, input$dataVars])
   # })
   
+  dt <- eventReactive(input$dataVars, {
+    # Selecting Predictors
+    dt <- bird_count %>% select(Count, all_of(input$dataVars))
+    dt
+  })
+  
   output$dlTable <- renderDT(
-    bird_count, filter = "top", options = list(pageLength = 50, 
+    dt(), filter = "top", options = list(pageLength = 50, 
                                                autowidth = TRUE))
   #   options = list(paging = FALSE))
   
