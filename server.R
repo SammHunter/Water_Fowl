@@ -15,6 +15,7 @@ library(RWeka)
 #############################################
 ############# Data Prep #####################
 #############################################
+#fowls <- read.csv("data/duck_data.csv")
 
 birds <- fowls %>% 
   mutate( 
@@ -153,16 +154,22 @@ shinyServer(function(input, output, session) {
   })
   
   
-### MODELLING TAB
-  ## Information
+  #########################
+  ####### MODELLING #######
+  #########################
+  
+  ###############
+  ### Information
+  ###############
   output$lmFormula <- renderUI({
     withMathJax(helpText('Multiple Linear Regression Model:  
                          $$Y=\\beta_0+\\beta_1\\,X_1+...+\\beta_n\\,X_n+\\epsilon$$'))
   })
 
   
-  ### Models
-  # User Input Choices for all Models
+  ###############
+  ####### Fitting
+  ###############
   cv_num <- eventReactive(input$Model, {
     input$cv
   })
@@ -203,14 +210,17 @@ shinyServer(function(input, output, session) {
     }))
   })
   
+  ###############
   ## Linear Model
+  ###############
   output$LMResults <- renderPrint({
     summary(lmFit())
   })
   
+  
+  ###############
   ## Boosted Trees
-  #User Input Choices
-
+  ###############
   ntrees_num <- eventReactive(input$Model, {
     input$ntrees
   })
@@ -246,8 +256,9 @@ shinyServer(function(input, output, session) {
     bt()
   })
 
-
+  #################
   ## Random Forests
+  #################
   mtry_num <- eventReactive(input$Model, {
     input$mtry_num
   })
@@ -268,6 +279,10 @@ shinyServer(function(input, output, session) {
     rf()
   })
 
+  
+  #################
+  ############ RMSE
+  #################
   output$lmRMSE <- renderPrint({
     lmPred <- predict(lmFit(), newdata = pred_test())
     # Calculating RMSE
@@ -290,7 +305,9 @@ shinyServer(function(input, output, session) {
   })
   
   
-### PREDICTION TAB  
+  #################
+  ###### Prediction
+  ################# 
   pred_species <- observe({
     input$predSpecies
   })
@@ -322,9 +339,6 @@ shinyServer(function(input, output, session) {
   })
   
   output$btPredCount <- renderPrint({
-    birds_train$State <- as.factor(birds_train$State)
-    birds_train$WetHab <- as.factor(birds_train$WetHab)
-    birds_train$Species <- as.factor(birds_train$Species)
     btPred <- gbm(Count ~ Year + State + Stratum + WetHab + Species,
                   n.trees = 500, shrinkage = 0.1, interaction.depth = 4, 
                   data = birds_train)
@@ -348,12 +362,16 @@ shinyServer(function(input, output, session) {
   })
   
   
-### DATA TABLE
-  # Make table first
-  
+  ###############
+  ####### DATA DL
+  ###############
+  # sub_count <- eventReactive(input$dataVars, {
+  #   datatable(bird_count[, input$dataVars])
+  # })
   
   output$dlTable <- renderDT(
-    bird_count, filter = "top", options = list(pageLength = 50))
+    bird_count, filter = "top", options = list(pageLength = 50, 
+                                               autowidth = TRUE))
   #   options = list(paging = FALSE))
   
   output$DuckData <- downloadHandler(

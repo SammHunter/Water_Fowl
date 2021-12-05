@@ -15,6 +15,7 @@ library(RWeka)
 #############################################
 ############# Data Prep #####################
 #############################################
+#fowls <- read.csv("duck_data.csv")
 
 birds <- fowls %>% 
   mutate( 
@@ -70,11 +71,34 @@ fluidPage(
 ####### ABOUT ###########
 #########################
              tabPanel("About",
-                      h1("The Data"), 
-                      h2("Variables"), 
-                      p("What do they stand for? What are the limitations?"), 
-                      h1("Sources"), 
-                      p("JSTOR Link")),
+                      h1("Acknowledgement"),
+                      p("I would first like that like to thank H. W. Heusmann and John R. Sauer for publishing their 
+                        data on the US Fish and Wildlife’s site, and then I would like to apologize to them for abusing
+                        their data. Because the point of this project was to really get some good practice with R Shiny 
+                        and review the supervised learning models, I did several things that a statistician should never do
+                        (which is described more in Data section below). In my defense, I didn’t want my app to 
+                        boring. If you are interested in the actual conclusions from this survey, please read ", 
+                        a("The Northeastern States' Waterfowl Breeding Population Survey", 
+                          href = "http://proxying.lib.ncsu.edu/index.php?url=https://www.jstor.org/stable/3783692")),
+                      br(""),
+                      h1("Purpose of this App"),
+                      p("As mentioned, the purpose of this app is to explore the features of R's Shiny application using
+                        a real data set. We are using a fairly straight-foward data set from USFW about the counts of 
+                        migratory birds in the Northeastern coast. The",
+                        a("Atlantic Flyway Breeding Waterfowl Survey Homepage", 
+                          href = "https://migbirdapps.fws.gov/mbdc/databases/afbws/afbws.asp"), 
+                        "has tabs that both briefly describe the data as well as the ability to retrieve the data. The 
+                        highlights are that this survey, which has data published from 1993 to 2015 was 'designed
+                        to primarily estimate breeding population size of mallards, black ducks, wood ducks, and Canada geese', 
+                        but other bird counts were recorded. I only retrieved data on the first four ducks listed."),
+                      br(),
+                      h1("The Data"),
+                      h2("Variables Included"),
+                      h2("Variables Excluded"), 
+                      h2("Sketchy Stat Stuff"), 
+                      h1("Data Exploration"), 
+                      h1("Modelling"), 
+                      h1("Data")),
 
 #########################
 ### DATA EXPLORATION ####
@@ -157,6 +181,11 @@ fluidPage(
                         tabPanel("Information on Supervised Learning Methods",
                                  h1("Information on Supervised Learning Methods"),
                                  h2("General Information"), 
+                                 p("I also ignored the raw data about the number of pairs 
+                                   of birds although they do seem to be reported in conjunction 
+                                   with the raw number of birds seen. I don't know how this affect
+                                   the analysis I performed, which is why no conclusions should be
+                                   drawn from the models created by this app."), 
                                  br(), 
                                  p("Within the model fitting tab you should first make all your choices and then 
                                    press the ModelGO button to generate the models. This will take a varying amount of time
@@ -255,21 +284,6 @@ fluidPage(
                       ###############
                       selectInput("dataVars", "Variables to Display",
                                   names(bird_count), multiple = TRUE, selectize = TRUE),
-                      # selectInput("dataSpecies", "Species",
-                      #             unique(birds$Species), multiple = TRUE, selectize = TRUE),
-                      # numericInput("dataYear", "Years",
-                      #              min = 1993, max = 2015, value=2000),
-                      # selectInput("dataState", "States",
-                      #             unique(birds$State), multiple = TRUE, selectize = TRUE),
-                      # selectInput("dataStrat", "Stratums",
-                      #             unique(birds$Stratum), multiple = TRUE, selectize = TRUE), 
-                      # selectInput("dataTOD", "Time of Day",
-                      #             unique(birds$TimeOfDay), multiple = TRUE, selectize = TRUE), 
-                      # selectInput("dataHab", "Wetlands habitat nearby?", 
-                      #              c("Yes", "No"), multiple = TRUE, selectize = TRUE),
-                      # selectInput("dataHF", "Handfeeder nearby?", 
-                      #              c("Yes", "No"), multiple = TRUE, selectize = TRUE),
-                      # 
                       downloadButton(outputId = "DuckData", 
                                      label = "Download CSV"), 
                       DTOutput("dlTable") 
