@@ -102,13 +102,13 @@ shinyServer(function(input, output, session) {
       # Bar Plots For Year By Species
     else if(input$DisplayGraph == 2 && input$de_year_spec == 1){
         yr <- ggplot(bird_count) + 
-          geom_bar(aes(x=Year), position = "dodge")+
+          geom_bar(aes(x=Year, fill= Species), position = "dodge")+
           labs(x = "", y = "Count",
                 title ="Histogram of Instances Birds Were Seen by Year")
         yr
       }else if(input$DisplayGraph == 2 && input$de_year_spec != 1){
         yrsp <- ggplot(data = subset(bird_count, Species == input$de_year_spec)) +
-          geom_histogram(aes(x=Year))+
+          geom_histogram(aes(x=Year, Species == input$de_spec_spec))+
           labs(x = "Year", y = "Count",
                title ="Histogram of Instances Birds Were Seen by Year")
         yrsp

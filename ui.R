@@ -153,7 +153,7 @@ fluidPage(
                              column(3,
                                     # The radio button decides which variable to explore in the graph
                                     radioButtons("DisplayGraph", "Choose the Variable to Explore",
-                                                 c("Sepcies" = 1, "Year" = 2, "State" = 3, "Stratum" = 4,
+                                                 c("Species" = 1, "Year" = 2, "State" = 3, "Stratum" = 4,
                                                    "Wetland Habitat" = 6, "Handfeed" = 7, "Count" = 8))),
                              column(3,
                                     conditionalPanel(condition = "input.DisplayGraph == 1",
